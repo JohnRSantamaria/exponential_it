@@ -158,3 +158,4 @@ yarn-error.log*
 __pypackages__/
 celerybeat-schedule
 celerybeat.pid
+backend/django/docs/*
