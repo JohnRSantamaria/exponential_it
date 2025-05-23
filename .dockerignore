@@ -93,3 +93,5 @@ db.sqlite3-journal
 local_settings.py
 settings_local.py
 migrations/
+
+*/backend/django/docs/*
