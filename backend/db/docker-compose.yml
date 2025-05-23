@@ -1,0 +1,13 @@
+services:
+    postgres_saas:
+        image: postgres:15
+        container_name: postgres_db
+        restart: always
+        env_file:
+            - .env
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        ports:
+            - '5432:5432'
+volumes:
+    postgres_data:
