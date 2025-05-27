@@ -19,7 +19,14 @@ THIRD_PARTY_APPS = [
 ]
 
 
-USER_APPS = ["services", "users", "camps", "core"]
+USER_APPS = [
+    "services",
+    "users",
+    "camps",
+    "core",
+    "schedule",
+    "activities",
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
