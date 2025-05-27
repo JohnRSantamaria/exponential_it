@@ -16,6 +16,8 @@ __pycache__/
 # 🐍 Entornos virtuales / Python envs
 # ───────────────────────────────
 .env
+.env.local
+.env.prod
 .venv/
 venv/
 env/

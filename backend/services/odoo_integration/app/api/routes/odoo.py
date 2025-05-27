@@ -1,7 +1,9 @@
 from fastapi import APIRouter
 from app.core.types import CustomAppException
 
-router = APIRouter(prefix="/odoo", tags=["odoo"])
+router = APIRouter(
+    prefix="/odoo",
+)
 
 
 @router.get("/health")

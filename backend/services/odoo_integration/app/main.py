@@ -26,6 +26,7 @@ app.add_middleware(GlobalExceptionMiddleware)
 # Rutas
 app.include_router(odoo.router, prefix="/api/v1")
 
+
 # Handles global exceptions
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
