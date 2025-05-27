@@ -1,9 +1,15 @@
+# config\settings\base.py
+import sys
 from pathlib import Path
 from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Esto te permite importar todas tus apps sin errores como si estuvieran en el raíz.
+sys.path.insert(0, str(BASE_DIR / "applications"))
+
 SECRET_KEY = config("DJANGO_SECRET_KEY")
+
 
 # Application definition
 THIRD_PARTY_APPS = [
@@ -13,10 +19,7 @@ THIRD_PARTY_APPS = [
 ]
 
 
-USER_APPS = [
-    "services",
-    "users",
-]
+USER_APPS = ["services", "users", "camps", "core"]
 
 INSTALLED_APPS = [
     "django.contrib.admin",

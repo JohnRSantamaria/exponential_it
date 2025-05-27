@@ -1,18 +1,18 @@
-# core/constants.py
-GENDER_CHOICES = (
-    ("M", "Masculino"),
-    ("F", "Femenino"),
-)
+# applications/core/constants.py
 
-GROUP_CHOICES = (
-    ("J", "Junior"),
-    ("S", "Senior"),
-)
+# Apps que solo existen en las bases de datos de campamentos
+CAMP_APPS = []  # "monitors",  "activities",  "participants",  "schedule",
 
-EXPERTISE_CHOICES = (
-    (1, "Principiante"),
-    (2, "Intermedio"),
-    (3, "Avanzado"),
-    (4, "Experto"),
-    (5, "Maestro"),
-)
+
+# Apps que deben vivir SOLO en la base de datos central
+CENTRAL_APPS = [
+    "users",
+    "services",
+    "camps",
+    "core",
+    "admin",
+    "auth",
+    "contenttypes",
+    "sessions",
+    "oauth2_provider",
+]

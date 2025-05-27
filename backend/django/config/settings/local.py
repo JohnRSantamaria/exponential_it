@@ -8,7 +8,8 @@ DEBUG = True
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
 
 
-MIDDLEWARE.insert(0, "corsheaders.middleware.CorsMiddleware")
+MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
+
 
 # Rest framework
 REST_FRAMEWORK = {
