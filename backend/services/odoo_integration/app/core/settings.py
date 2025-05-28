@@ -20,7 +20,16 @@ class Settings(BaseSettings):
     PORT: int = 8004
     DEBUG: bool = True
 
+    # Logger Level
     LOG_LEVEL: str = "INFO"
+
+    # Odoo credentials
+    ODOO_API_KEY: str
+    ODOO_HOST: str
+    ODOO_PORT: str
+    ODOO_DB: str
+    ODOO_USER: str
+    ODOO_PASSWORD: str
 
     class Config:
         env_file = env_file_to_use
