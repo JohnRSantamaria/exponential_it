@@ -7,6 +7,7 @@ from app.services.odoo.odoo_partner_service import (
     create_draft_invoice,
     create_partner,
     create_supplier,
+    get_all_currencies,
     get_all_partners,
     get_all_suppliers,
 )
@@ -88,5 +89,15 @@ def create_new_supplier(data, odoo: ODOO = Depends(get_odoo_client)):
 
 
 @router.post("/invoices", response_model=dict, status_code=201)
-def create_invoice(data, odoo: ODOO = Depends(get_odoo_client)):
-    return create_draft_invoice(data, odoo)
+def create_invoice(payload, odoo: ODOO = Depends(get_odoo_client)):
+    return create_draft_invoice(payload, odoo)
+
+
+# ---------------------
+# Monedas
+# ---------------------
+
+
+@router.get("/currencies", response_model=list, status_code=200)
+def list_currencies(odoo: ODOO = Depends(get_odoo_client)):
+    return get_all_currencies(odoo=odoo)

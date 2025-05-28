@@ -6,3 +6,4 @@ class CustomAppException(Exception):
         self.message = message
         self.data = data or {}
         self.status_code = status_code
+

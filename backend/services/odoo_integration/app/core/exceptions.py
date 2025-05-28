@@ -2,28 +2,14 @@
 import httpx
 
 from pydantic import ValidationError
-from datetime import datetime, timezone
 
-from app.core.config import format_error_response
+from app.core.formats import format_error_response
 from app.core.types import CustomAppException
 from app.core.logger import logger
 
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-
-
-def format_error_response(
-    message: str,
-    error_type: str,
-    status_code: int,
-):
-    return {
-        "detail": message,
-        "error_type": error_type,
-        "status_code": status_code,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
 
 
 async def http_exception_handler(request: Request, exc: HTTPException):
