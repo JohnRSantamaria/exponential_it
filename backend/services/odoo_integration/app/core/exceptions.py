@@ -1,13 +1,16 @@
 # app/core/exception_handlers.py
+import httpx
+
+from pydantic import ValidationError
+from datetime import datetime, timezone
+
+from app.core.config import format_error_response
+from app.core.types import CustomAppException
+from app.core.logger import logger
+
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from pydantic import ValidationError
-import httpx
-from datetime import datetime, timezone
-
-from app.core.types import CustomAppException
-from app.core.logger import logger
 
 
 def format_error_response(

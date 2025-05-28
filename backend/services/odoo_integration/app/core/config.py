@@ -2,7 +2,6 @@
 # app/core/middleware/error_handler.py
 import httpx
 from pydantic import ValidationError
-from datetime import datetime, timezone
 
 from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -11,22 +10,9 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
-
+from app.core.exceptions import format_error_response
 from app.core.logger import logger
 from app.core.types import CustomAppException
-
-
-def format_error_response(
-    message: str,
-    error_type: str,
-    status_code: int,
-):
-    return {
-        "detail": message,
-        "error_type": error_type,
-        "status_code": status_code,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
 
 
 class GlobalExceptionMiddleware(BaseHTTPMiddleware):
