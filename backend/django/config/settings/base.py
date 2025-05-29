@@ -4,9 +4,10 @@ from pathlib import Path
 from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 # Esto te permite importar todas tus apps sin errores como si estuvieran en el raíz.
-sys.path.insert(0, str(BASE_DIR / "applications"))
+APPLICATIONS_PATH = BASE_DIR.parent
+sys.path.insert(0, str(APPLICATIONS_PATH / "applications"))
+
 
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 

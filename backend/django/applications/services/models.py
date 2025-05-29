@@ -2,7 +2,7 @@ from django.db import models
 from django.utils import timezone
 
 
-from applications.core.log_utils import decrypt_value, encrypt_value
+from core.log_utils import decrypt_value, encrypt_value
 from users.models import User
 
 

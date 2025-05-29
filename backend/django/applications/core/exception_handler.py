@@ -1,4 +1,6 @@
 # applications\core\exception_handler.py
+import logging
+
 from django.http import JsonResponse
 from rest_framework.views import exception_handler as drf_exception_handler
 from rest_framework.response import Response
@@ -7,7 +9,7 @@ from rest_framework import status
 from applications.core.log_utils import format_error_response, get_client_ip
 
 
-from .logging_config import logger
+logger = logging.getLogger("app")
 
 
 def custom_handler404(request, exception):

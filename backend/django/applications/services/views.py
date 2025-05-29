@@ -3,15 +3,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from services.models import UserService
-
-
-# applications/services/api/views.py
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from services.models import UserService
+from .models import UserService
 
 
 class ActiveServiceCredentialsView(APIView):
@@ -38,4 +30,3 @@ class ActiveServiceCredentialsView(APIView):
 
         data = {cred.key: cred.value for cred in credentials_qs}
         return Response(data)
-    

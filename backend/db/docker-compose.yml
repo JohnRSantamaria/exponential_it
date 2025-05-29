@@ -1,7 +1,7 @@
 services:
     postgres_saas:
         image: postgres:15
-        container_name: postgres_db
+        container_name: postgres_db_test
         restart: always
         env_file:
             - .env
@@ -12,7 +12,7 @@ services:
 
     postgres_saas_test:
         image: postgres:15
-        container_name: postgres_db_test
+        container_name: postgres_db_test_dos
         restart: always
         env_file:
             - .env

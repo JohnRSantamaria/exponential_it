@@ -1,11 +1,12 @@
-from cryptography.fernet import Fernet, InvalidToken
+import logging
 
-from .logging_config import logger
-from django.utils.timezone import now
 from decouple import config
+from django.utils.timezone import now
+from cryptography.fernet import Fernet, InvalidToken
 
 CRYPTO_KEY = config("CRYPTO_KEY").encode()
 fernet = Fernet(CRYPTO_KEY)
+logger = logging.getLogger("app")
 
 
 def encrypt_value(value: str) -> bytes:

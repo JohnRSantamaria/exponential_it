@@ -5,13 +5,14 @@ from .base import *
 
 
 DEBUG = False
+
 ENVIRONMENT: str = "development"
 LOG_LEVEL: str = "ERROR"
 
 
-# ALLOWED_HOSTS = [f"{HOST}"]
 HOST = config("HOST", default="0.0.0.0", cast=str)
-ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
+# ALLOWED_HOSTS = [f"{HOST}"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
 
 
 MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
@@ -22,6 +23,7 @@ CORS_ALLOWED_ORIGINS = [f"http://{HOST}"]
 DATABASES = {"default": dj_database_url.parse(config("DATABASE_PROD"))}
 
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Exipiraicon del token
 OAUTH2_PROVIDER = {

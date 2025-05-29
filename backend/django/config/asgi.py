@@ -10,12 +10,13 @@ https://docs.djangoproject.com/en/5.2/howto/deployment/asgi/
 from django.conf import settings
 from django.core.asgi import get_asgi_application
 
+from applications.core.logging_config import configure_logging
 from config.set_up import set_up_environment
 
-from applications.core.logging_config import logger
 
 set_up_environment()
 
+logger = configure_logging()
 logger.info(f"\n🟢 ASGI iniciado correctamente entorno: {settings.ENVIRONMENT.upper()}")
 
 application = get_asgi_application()

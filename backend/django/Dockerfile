@@ -1,6 +1,6 @@
 FROM python:3.13-alpine
 
-WORKDIR /code
+WORKDIR /app
 
 # Evitar prompts
 ENV DEBIAN_FRONTEND=noninteractive
