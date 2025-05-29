@@ -1,4 +1,5 @@
 # Seguridad: JWT, OAuth2, scopes
+# app\core\security.py
 import json
 
 
@@ -25,7 +26,8 @@ async def get_current_user(authorization: str = Header(...)):
         )
 
     return {
-        "user_id": payload.get("sub"),
-        "email": payload.get("email"),
+        "user_id": payload.get("user_id"),
+        "email": payload.get("user_email"),
         "active_subscriptions": payload.get("services", []),
+        "exp": int(payload.get("exp")),
     }

@@ -48,13 +48,13 @@ def create_tokens_for_user(user, app=None):
 
     # Servicios activos
     services = user.user_services.filter(is_active=True).select_related("service")
-    service_codes = [s.service.code for s in services]
+    service_codes = [{s.service.id: s.service.name} for s in services]
 
     # JWT
     app_token = sign_jwt(
         {
-            "sub": str(user.id),
-            "email": user.email,
+            "user_id": str(user.id),
+            "user_email": user.email,
             "services": service_codes,
             "exp": int((timezone.now() + ACCESS_TOKEN_EXPIRATION).timestamp()),
         }

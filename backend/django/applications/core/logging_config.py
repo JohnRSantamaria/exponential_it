@@ -6,9 +6,7 @@ from colorlog import ColoredFormatter
 
 
 def configure_logging():
-    log_file = settings.ERROR_LOG_FILE
-
-    print(f"CARPETA CONTENEDORA DEL LOG : {log_file}")
+    log_file = settings.ERROR_LOG_FILE    
 
     log_level_str = (
         settings.LOG_LEVEL.upper()

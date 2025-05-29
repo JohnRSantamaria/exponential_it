@@ -4,7 +4,6 @@ from typing import Annotated
 from fastapi import File, UploadFile
 from fastapi.exceptions import RequestValidationError
 
-from app.core.types import CustomAppException
 from app.services.ocr.extractors import InvoiceExtractor
 
 
@@ -20,6 +19,6 @@ async def proces_document(payload: dict, file: Annotated[UploadFile, File(...)])
         )
 
     extractor = InvoiceExtractor(json_data=parsed_payload)
-    main_fields = extractor.extract_main_fields()
+    main_fields = extractor.extract_main_fields()   
 
     return main_fields

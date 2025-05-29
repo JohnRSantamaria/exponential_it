@@ -2,7 +2,6 @@
 # app/core/middleware/error_handler.py
 import httpx
 from pydantic import ValidationError
-from datetime import datetime, timezone
 
 from starlette.requests import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -11,22 +10,11 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
-
-from app.core.logger import logger
+from app.core.format import format_error_response
 from app.core.types import CustomAppException
+from app.core.logger import configure_logging
 
-
-def format_error_response(
-    message: str,
-    error_type: str,
-    status_code: int,
-):
-    return {
-        "detail": message,
-        "error_type": error_type,
-        "status_code": status_code,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+logger = configure_logging()
 
 
 class GlobalExceptionMiddleware(BaseHTTPMiddleware):
@@ -51,6 +39,12 @@ class GlobalExceptionMiddleware(BaseHTTPMiddleware):
                 status_code = exc.response.status_code
             elif isinstance(exc, CustomAppException):
                 status_code = exc.status_code
+
+            logger.error(
+                f"Excepción atrapada por middleware global | {request.method} {request.url} | "
+                f"Tipo: {type(exc).__name__} | Código: {status_code} | Detalle: {str(exc)}",
+                exc_info=exc,
+            )
 
             return JSONResponse(
                 status_code=status_code,

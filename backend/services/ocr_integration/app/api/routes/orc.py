@@ -12,9 +12,13 @@ router = APIRouter(prefix="/ocr", tags=["ocr"])
 async def ocr_invoices(
     payload: Annotated[str, Form(...)],
     file: Annotated[UploadFile, File(...)],
-    _: dict = Depends(required_service(["ocr"])),
+    _: dict = Depends(required_service(["1"])),
 ):
     """
     Esta ruta procesa documentos OCR solo si el usuario está autenticado correctamente con un JWT emitido por Django.
     """
+
+    # Get client Information
+    
+
     return await proces_document(payload=payload, file=file)

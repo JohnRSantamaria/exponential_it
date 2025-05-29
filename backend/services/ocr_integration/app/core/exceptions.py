@@ -1,26 +1,16 @@
 # app/core/exception_handlers.py
+import httpx
+
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
-import httpx
-from datetime import datetime, timezone
 
+from app.core.format import format_error_response
+from app.core.logger import configure_logging
 from app.core.types import CustomAppException
-from app.core.logger import logger
 
-
-def format_error_response(
-    message: str,
-    error_type: str,
-    status_code: int,
-):
-    return {
-        "detail": message,
-        "error_type": error_type,
-        "status_code": status_code,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
+logger = configure_logging()
 
 
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -34,6 +24,8 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         -Recurso no encontrado (404)
         -Errores definidos por FastAPI en las rutas
     """
+
+    logger.warning(f"HTTPException {exc.status_code} - {exc.detail}")
     return JSONResponse(
         status_code=exc.status_code,
         content=format_error_response(
@@ -53,6 +45,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         -Campos faltantes en un POST
         -Valores con formato incorrecto en query parameters
     """
+    logger.warning(f"RequestValidationError en {request.url.path} | Detalle: {exc}")
     return JSONResponse(
         status_code=422,
         content=format_error_response(str(exc), "ValidationError", 422),
@@ -69,6 +62,7 @@ async def pydantic_validation_handler(request: Request, exc: ValidationError):
         - Validación manual con modelos Pydantic (MyModel(**data))
         - Conversión y validación de datos internos que no provienen del request
     """
+    logger.warning(f"Pydantic ValidationError en {request.url.path} | Detalle: {exc}")
     return JSONResponse(
         status_code=422,
         content=format_error_response(str(exc), "PydanticValidation", 422),
@@ -90,6 +84,7 @@ async def httpx_error_handler(request: Request, exc: httpx.RequestError):
         except httpx.RequestError as exc:
             raise exc  # Esto activa este handler
     """
+    logger.error(f"Error de red con servicio externo en {request.url} | {repr(exc)}")
     return JSONResponse(
         status_code=502,
         content=format_error_response(
@@ -111,6 +106,9 @@ async def custom_app_exception_handler(request: Request, exc: CustomAppException
     Ventaja:
         Permite enviar mensajes y status code definidos con control total desde cualquier parte del código.
     """
+    logger.error(
+        f"CustomAppException {exc.status_code} en {request.url.path} | {exc.message}"
+    )
     return JSONResponse(
         status_code=exc.status_code,
         content=format_error_response(
@@ -132,7 +130,10 @@ async def general_exception_handler(request: Request, exc: Exception):
         Siempre mantener este handler para evitar exponer detalles internos al cliente.
         Registra la excepción con traceback completo en los logs para depuración.
     """
-    logger.error("Excepción no controlada", exc_info=exc)
+    logger.critical(
+        f"Excepción no controlada en {request.url.path} | {type(exc).__name__}",
+        exc_info=exc,
+    )
     return JSONResponse(
         status_code=500,
         content=format_error_response(

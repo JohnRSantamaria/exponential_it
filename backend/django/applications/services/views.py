@@ -9,13 +9,13 @@ from .models import UserService
 class ActiveServiceCredentialsView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, service_code):
+    def get(self, request, service_id):
         user = request.user
         keys_requested = request.query_params.get("keys")
 
         try:
             user_service = UserService.objects.get(
-                user=user, service__code=service_code, is_active=True
+                user=user, service_id=service_id, is_active=True
             )
         except UserService.DoesNotExist:
             return Response(
