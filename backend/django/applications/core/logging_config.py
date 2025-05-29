@@ -12,6 +12,8 @@ def configure_logging():
 
     log_file = log_dir / "errors.log"
 
+    print(f"CARPETA CONTENEDORA DEL LOG : {log_file}")
+
     log_level_str = (
         settings.LOG_LEVEL.upper()
         if getattr(settings, "LOG_LEVEL", None)
