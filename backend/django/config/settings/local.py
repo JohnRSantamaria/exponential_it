@@ -30,5 +30,6 @@ STATIC_URL = "static/"
 
 # Exipiraicon del token
 OAUTH2_PROVIDER = {
-    "ACCESS_TOKEN_EXPIRE_SECONDS": 36000,  # 7200s 2 horas, por ejemplo
+    "ACCESS_TOKEN_EXPIRE_SECONDS": 300,  # 7200s 2 horas, por ejemplo
+    "REFRESH_TOKEN_EXPIRATION": 43200,  # 30 Días
 }

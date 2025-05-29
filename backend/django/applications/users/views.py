@@ -1,25 +1,18 @@
-from datetime import timedelta
-
-from django.utils import timezone
-
-from rest_framework import status
+# applications\users\views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 
-from oauthlib.common import generate_token
-from oauth2_provider.settings import oauth2_settings
-from oauth2_provider.models import AccessToken, Application
-
-
-from .utils.serialize_jwt import sign_jwt
+from oauth2_provider.models import RefreshToken, AccessToken
 from .models import User
 from .serializers import UserCreateSerializer
-from django.contrib.auth import get_user_model
+from .utils.token_issuer import create_tokens_for_user, REFRESH_TOKEN_EXPIRATION
 
 
 class RegisterUserView(APIView):
-    permission_classes = []  # Permitir acceso sin autenticación
+    permission_classes = []
 
     def post(self, request):
         serializer = UserCreateSerializer(data=request.data)
@@ -32,10 +25,7 @@ class RegisterUserView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-User = get_user_model()
-
-
-class CustomTokenView(APIView):
+class LoginView(APIView):
     permission_classes = []
 
     def post(self, request):
@@ -59,53 +49,59 @@ class CustomTokenView(APIView):
                 {"error": "Usuario inactivo"}, status=status.HTTP_403_FORBIDDEN
             )
 
-        # Crear o recuperar aplicación
-        app, _ = Application.objects.get_or_create(
-            name="default",
-            defaults={
-                "client_type": Application.CLIENT_CONFIDENTIAL,
-                "authorization_grant_type": Application.GRANT_PASSWORD,
-                "user": user,
-            },
-        )
+        return Response(create_tokens_for_user(user))
 
-        token = AccessToken.objects.create(
-            user=user,
-            application=app,
-            token=generate_token(),
-            expires=timezone.now()
-            + timedelta(seconds=oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS),
-            scope="read write",
-        )
 
-        # Obtener servicios activos
-        services = user.user_services.filter(is_active=True).select_related("service")
-        service_codes = [s.service.code for s in services]
+class RefreshTokenView(APIView):
+    permission_classes = []
 
-        # Crear JWT
-        jwt_token = sign_jwt(
-            {
-                "sub": str(user.id),
-                "email": user.email,
-                "services": service_codes,
-                "exp": int(
-                    (
-                        timezone.now()
-                        + timedelta(seconds=oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS)
-                    ).timestamp()
-                ),
-            }
-        )
+    def post(self, request):
+        refresh_token_str = request.data.get("refresh_token")
+        if not refresh_token_str:
+            return Response({"error": "No se proporcionó refresh_token"}, status=400)
 
-        return Response(
-            {
-                "access_token": token.token,
-                "token_type": "Bearer",
-                "expires_in": oauth2_settings.ACCESS_TOKEN_EXPIRE_SECONDS,
-                "scope": token.scope,
-                "jwt": jwt_token,
-            }
-        )
+        try:
+            refresh = RefreshToken.objects.select_related(
+                "access_token", "user", "application"
+            ).get(token=refresh_token_str)
+        except RefreshToken.DoesNotExist:
+            return Response({"error": "Refresh token inválido"}, status=401)
+
+        if not refresh.user.is_active:
+            return Response({"error": "Usuario inactivo"}, status=403)
+
+        created_at = refresh.created or refresh.access_token.created
+        if timezone.now() > created_at + REFRESH_TOKEN_EXPIRATION:
+            refresh.access_token.delete()
+            refresh.delete()
+            return Response({"error": "Refresh token expirado"}, status=401)
+
+        # Revocar tokens antiguos
+        refresh.access_token.delete()
+        refresh.delete()
+
+        return Response(create_tokens_for_user(refresh.user, app=refresh.application))
+
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        token_str = request.auth.token if hasattr(request.auth, "token") else None
+        if not token_str:
+            return Response({"detail": "Token no proporcionado o inválido"}, status=400)
+
+        try:
+            access_token = AccessToken.objects.select_related("refresh_token").get(
+                token=token_str
+            )
+        except AccessToken.DoesNotExist:
+            return Response({"detail": "Token no encontrado"}, status=404)
+
+        RefreshToken.objects.filter(access_token=access_token).delete()
+        access_token.delete()
+
+        return Response({"detail": "Sesión cerrada correctamente."})
 
 
 class UserServicesView(APIView):

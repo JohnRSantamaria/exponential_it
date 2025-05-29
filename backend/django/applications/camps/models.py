@@ -1,7 +1,7 @@
-from cryptography.fernet import Fernet
 from django.db import models
-from cryptography.fernet import Fernet, InvalidToken
-from decouple import config
+
+
+from applications.core.db_utils import decrypt_value, encrypt_value
 
 
 class Camp(models.Model):
@@ -11,8 +11,8 @@ class Camp(models.Model):
     _db_password = models.BinaryField(db_column="db_password")  # almacenado cifrado
     db_host = models.CharField(max_length=100, default="localhost")
     db_port = models.IntegerField(default=5432)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
     active = models.BooleanField(default=True)
 
     class Meta:
@@ -20,17 +20,13 @@ class Camp(models.Model):
         verbose_name_plural = "Campamentos"
 
     @property
+    @property
     def db_password(self):
-        try:
-            key = config("CAMP_CRYPTO_KEY").encode()
-            return Fernet(key).decrypt(self._db_password).decode()
-        except (InvalidToken, TypeError):
-            return ""
+        return decrypt_value(self._db_password)
 
     @db_password.setter
     def db_password(self, value: str):
-        key = config("CAMP_CRYPTO_KEY").encode()
-        self._db_password = Fernet(key).encrypt(value.encode())
+        self._db_password = encrypt_value(value)
 
     def get_db_config(self):
         return {

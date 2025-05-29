@@ -1,4 +1,12 @@
+import base64
+
+from decouple import config
+from cryptography.fernet import Fernet, InvalidToken
+
 from django.conf import settings
+
+CRYPTO_KEY = config("CRYPTO_KEY").encode()
+fernet = Fernet(CRYPTO_KEY)
 
 
 def build_db_config(camp) -> dict:
@@ -24,3 +32,17 @@ def build_db_config(camp) -> dict:
             "sslmode": "require" if use_ssl else "disable",
         },
     }
+
+
+def encrypt_value(value: str) -> bytes:
+    return fernet.encrypt(value.encode())
+
+
+def decrypt_value(value) -> str:
+    if not value:
+        return ""
+    try:
+        return fernet.decrypt(bytes(value)).decode()
+    except (InvalidToken, TypeError, ValueError) as e:
+        print(f"⚠️ Error al desencriptar: {e}")
+        return ""
