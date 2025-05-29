@@ -1,7 +1,6 @@
 from django.db import models
 
-
-from applications.core.db_utils import decrypt_value, encrypt_value
+from applications.core.log_utils import decrypt_value, encrypt_value
 
 
 class Camp(models.Model):
@@ -19,7 +18,6 @@ class Camp(models.Model):
         verbose_name = "Campamento"
         verbose_name_plural = "Campamentos"
 
-    @property
     @property
     def db_password(self):
         return decrypt_value(self._db_password)

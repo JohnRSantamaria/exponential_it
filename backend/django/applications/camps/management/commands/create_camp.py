@@ -5,7 +5,6 @@ import dj_database_url
 
 from decouple import config
 from camps.models import Camp
-from applications.core.db_utils import build_db_config
 
 from django.db import connections, connection
 from django.db.utils import OperationalError
@@ -13,7 +12,8 @@ from django.contrib.auth import get_user_model
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
-from applications.core.constants import CAMP_APPS
+from applications.camps.db_utils import build_db_config
+from applications.camps.constants import CAMP_APPS
 
 
 class Command(BaseCommand):
@@ -202,5 +202,5 @@ class Command(BaseCommand):
 
 
 # Ejemplo de uso:
-# python manage.py create_camp camp_cliente --db_name=camp_cliente --db_host=localhost --db_port=5433 --db_user=saas_user --db_password=saas_pass --with-superuser --su_name=admin --su_last_name=cliente -- 
+# python manage.py create_camp camp_cliente --db_name=camp_cliente --db_host=localhost --db_port=5433 --db_user=saas_user --db_password=saas_pass --with-superuser --su_name=admin --su_last_name=cliente --
 # python manage.py create_camp camp_cliente --db_name=camp_cliente --db_host=localhost --db_port=5433 --db_user=saas_user   --db_password=saas_pass

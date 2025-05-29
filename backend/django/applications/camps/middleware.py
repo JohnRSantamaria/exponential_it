@@ -1,14 +1,33 @@
-# applications/core/decorators.py
-from functools import wraps
+from django.db import OperationalError, ProgrammingError
 from django.http import JsonResponse
-from django.db.utils import ProgrammingError, OperationalError
-from camps.models import Camp
+
 from applications.camps.db_context import set_current_camp
+from applications.camps.models import Camp
 
 
-def require_camp_token(view_func):
-    @wraps(view_func)
-    def _wrapped_view(request, *args, **kwargs):
+class CampDetectionMiddleware:
+    """
+    Middleware para detectar el campamento actual a partir de la cabecera 'X-Camp-Token'.
+
+    - Omite rutas centrales como /admin/, /static/, /docs/, etc.
+    - Requiere cabecera X-Camp-Token para rutas normales.
+    - Si el modelo Camp no está disponible (por ejemplo, durante migraciones), devuelve error controlado.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        path = request.path
+
+        if (
+            path.startswith("/admin/")
+            or path.startswith("/static/")
+            or path.startswith("/favicon")
+            or path.startswith("/docs/")
+        ):
+            return self.get_response(request)
+
         token = request.headers.get("X-Camp-Token")
 
         if not token:
@@ -35,16 +54,4 @@ def require_camp_token(view_func):
             )
 
         set_current_camp(camp)
-        return view_func(request, *args, **kwargs)
-
-    return _wrapped_view
-
-
-# # applications/schedule/views.py
-# from django.http import JsonResponse
-# from applications.core.decorators import require_camp_token
-
-
-# @require_camp_token
-# def list_activities(request):
-#     return JsonResponse({"ok": True, "camp": "válido"})
+        return self.get_response(request)

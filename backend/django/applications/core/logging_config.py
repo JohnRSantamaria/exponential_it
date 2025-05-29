@@ -6,7 +6,7 @@ from pathlib import Path
 from django.conf import settings
 from colorlog import ColoredFormatter
 
-log_dir = Path(__file__).resolve().parents[1] / "logs"
+log_dir = Path(__file__).resolve().parents[2] / "logs"
 log_dir.mkdir(parents=True, exist_ok=True)
 
 log_file = log_dir / "errors.log"

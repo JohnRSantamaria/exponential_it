@@ -4,7 +4,8 @@ from rest_framework.views import exception_handler as drf_exception_handler
 from rest_framework.response import Response
 from rest_framework import status
 
-from .db_utils import format_error_response, get_client_ip
+from applications.core.log_utils import format_error_response, get_client_ip
+
 
 from .logging_config import logger
 

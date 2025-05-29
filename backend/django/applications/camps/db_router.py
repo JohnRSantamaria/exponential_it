@@ -1,6 +1,6 @@
 # config/db_router.py
-from applications.core.db_context import get_current_camp
-from applications.core.constants import CAMP_APPS, CENTRAL_APPS
+from applications.camps.db_context import get_current_camp
+from applications.camps.constants import CAMP_APPS, CENTRAL_APPS
 
 
 class CampRouter:

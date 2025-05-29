@@ -1,7 +1,7 @@
 # core/admin.py (o en cualquier admin mixin)
 from django.contrib import admin
 from django.db import connections
-from applications.core.db_context import get_current_camp
+from applications.camps.db_context import get_current_camp
 
 
 class MultiDBAdminMixin:
