@@ -1,4 +1,5 @@
 # config\settings\local.py
+import os
 from .base import *
 
 import dj_database_url
@@ -9,16 +10,6 @@ ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
 
 
 MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
-
-
-# Rest framework
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "oauth2_provider.contrib.rest_framework.OAuth2Authentication",
-        "rest_framework.authentication.SessionAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-}
 
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -32,4 +23,38 @@ STATIC_URL = "static/"
 OAUTH2_PROVIDER = {
     "ACCESS_TOKEN_EXPIRE_SECONDS": 300,  # 7200s 2 horas, por ejemplo
     "REFRESH_TOKEN_EXPIRATION": 43200,  # 30 Días
+}
+
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "[{asctime}] {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "file": {
+            "level": "ERROR",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "logs", "errors.log"),
+            "formatter": "default",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "custom": {
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+    },
 }

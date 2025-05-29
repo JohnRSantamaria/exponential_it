@@ -7,3 +7,7 @@ urlpatterns = [
     path("services/", include("services.urls")),
     # path("campers/", include("applications.schedule.urls")),
 ]
+
+
+handler404 = "core.exception_handler.custom_handler404"
+handler500 = "core.exception_handler.custom_handler500"
