@@ -28,8 +28,6 @@ OAUTH2_PROVIDER = {
     "REFRESH_TOKEN_EXPIRATION": 43200,  # 30 Días
 }
 
-LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
 
 LOGGING = {
     "version": 1,
@@ -44,7 +42,7 @@ LOGGING = {
         "file": {
             "level": "ERROR",
             "class": "logging.FileHandler",
-            "filename": os.path.join(BASE_DIR, "logs", "errors.log"),
+            "filename": str(ERROR_LOG_FILE),
             "formatter": "default",
         },
     },

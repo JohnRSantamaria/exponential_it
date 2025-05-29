@@ -21,7 +21,7 @@ async def get_current_user(authorization: str = Header(...)):
 
     except Exception as e:
         raise HTTPException(
-            status_code=401, detail="Token inválido o no firmado correctamente"
+            status_code=401, detail=f"Token inválido o no firmado correctamente : {e}"
         )
 
     return {

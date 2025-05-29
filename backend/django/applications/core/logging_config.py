@@ -1,16 +1,12 @@
 import logging
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
 
 from django.conf import settings
 from colorlog import ColoredFormatter
 
 
 def configure_logging():
-    log_dir = Path(__file__).resolve().parents[2] / "logs"
-    log_dir.mkdir(parents=True, exist_ok=True)
-
-    log_file = log_dir / "errors.log"
+    log_file = settings.ERROR_LOG_FILE
 
     print(f"CARPETA CONTENEDORA DEL LOG : {log_file}")
 

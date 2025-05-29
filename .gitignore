@@ -135,7 +135,8 @@ db.sqlite3-journal
 local_settings.py
 settings_local.py
 migrations/
-*/config/staticfiles/
+*/config/staticfiles/*
+**/config/staticfiles/**
 */media/
 
 # ───────────────────────────────
@@ -160,4 +161,6 @@ yarn-error.log*
 __pypackages__/
 celerybeat-schedule
 celerybeat.pid
+
 backend/django/docs/*
+

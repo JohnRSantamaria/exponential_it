@@ -8,6 +8,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 APPLICATIONS_PATH = BASE_DIR.parent
 sys.path.insert(0, str(APPLICATIONS_PATH / "applications"))
 
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+ERROR_LOG_FILE = LOG_DIR / "errors.log"
 
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 
