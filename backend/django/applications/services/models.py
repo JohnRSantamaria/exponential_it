@@ -42,9 +42,13 @@ class ServiceCredential(models.Model):
 
     @property
     def value(self):
+        raw = self._value
+        if isinstance(raw, memoryview):
+            raw = raw.tobytes()
+
         if self.is_secret:
-            return decrypt_value(self._value)
-        return self._value.decode()
+            return decrypt_value(raw)
+        return raw.decode()
 
     @value.setter
     def value(self, val: str):

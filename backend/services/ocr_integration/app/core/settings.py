@@ -31,6 +31,12 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
 
+    # DataBase
+    DATABASE_URL: str
+
+    # Crypto keys
+    CRYPTO_KEY: str
+
     # Conversión de string a Path si se define por entorno
     @field_validator("ERROR_LOG_FILE", mode="before")
     @classmethod

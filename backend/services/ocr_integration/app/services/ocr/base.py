@@ -1,24 +1,27 @@
-import json
-from typing import Annotated
+# import json
+# from fastapi.exceptions import RequestValidationError
+# from typing import Dict
 
-from fastapi import File, UploadFile
-from fastapi.exceptions import RequestValidationError
-
-from app.services.ocr.extractors import InvoiceExtractor
+# from app.services.admin.schemas import CredentialOut
+# from app.services.ocr.extractors import InvoiceExtractor
 
 
-async def proces_document(payload: dict, file: Annotated[UploadFile, File(...)]):
+# def proces_document(payload: Dict, cif: CredentialOut):
 
-    try:
-        parsed_payload = json.loads(payload)
-        if not isinstance(parsed_payload, dict):
-            raise ValueError()
-    except (json.JSONDecodeError, ValueError):
-        raise RequestValidationError(
-            "El campo 'payload' debe ser un JSON válido con formato de objeto (dict)."
-        )
+#     extractor = InvoiceExtractor(json_data=parsed_payload, cif=cif)
 
-    extractor = InvoiceExtractor(json_data=parsed_payload)
-    main_fields = extractor.extract_main_fields()   
+#     main_fields = extractor.extract_main_fields()
 
-    return main_fields
+#     lines = extract_lines(amount_total)
+
+#     full_text = self.ocr_data.get("text", {}).get("text", "")
+
+#     regex_factory = RegexExtractor()
+
+#     valid_tax_identification = regex_factory.extract_all_patterns(text=full_text)
+
+#     if tax_identification_supplier == self.cif or not tax_identification_supplier:
+
+#         tax_identification_supplier = self.set_tax_identificacion_supplier(
+#             valid_tax_identification, self.cif
+#         )

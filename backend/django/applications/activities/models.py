@@ -1,5 +1,4 @@
 # applications\activities\models.py
-from datetime import datetime, timedelta
 from django.db import models
 
 

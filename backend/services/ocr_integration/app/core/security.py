@@ -2,7 +2,6 @@
 # app\core\security.py
 import json
 
-
 from jwcrypto import jwt, jwk
 from fastapi import HTTPException, Header
 

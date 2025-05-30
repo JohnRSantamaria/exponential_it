@@ -6,6 +6,10 @@ from app.core.settings import settings
 import re
 from typing import Dict, List
 
+from app.services.admin.credentials import get_credentials_for_user
+from app.services.admin.schemas import CredentialOut, UserDataSchema
+from app.services.ocr.credentials import get_credential
+
 
 class RegexExtractor:
     def __init__(self):
@@ -27,8 +31,9 @@ class RegexExtractor:
 
 
 class InvoiceExtractor:
-    def __init__(self, json_data: Dict[str, Any]):
+    def __init__(self, json_data: Dict[str, Any], cif: CredentialOut):
         self.ocr_data = json_data
+        self.cif = cif
 
     def extract_main_fields(self) -> Dict[str, Any]:
         """Extract main fields from OCR data."""
@@ -57,22 +62,6 @@ class InvoiceExtractor:
 
         amount_untaxed = float(round(amount_total - tax_amount, 2))
 
-        lines = self.extract_lines(amount_total)
-
-        full_text = self.ocr_data.get("text", {}).get("text", "")
-
-        regex_factory = RegexExtractor()
-
-        valid_tax_identification = regex_factory.extract_all_patterns(text=full_text)
-
-        if (
-            tax_identification_supplier == settings.CIF
-            or not tax_identification_supplier
-        ):
-            tax_identification_supplier = self.set_tax_identificacion_supplier(
-                valid_tax_identification
-            )
-
         address = {
             "address": self.ocr_data.get("merchantAddress", {}).get("data", ""),
             "city": self.ocr_data.get("merchantCity", {}).get("data", ""),
@@ -84,7 +73,7 @@ class InvoiceExtractor:
         }
 
         return {
-            "tax_identification_customer": settings.CIF,
+            "tax_identification_customer": self.cif,
             "tax_identification_supplier": tax_identification_supplier,
             "partner_id": partner_id,
             "invoice_date": invoice_date,
@@ -92,7 +81,6 @@ class InvoiceExtractor:
             "amount_total": amount_total,
             "amount_untaxed": amount_untaxed,
             "tax_amount": tax_amount,
-            "lines": lines,
             "address": address,
         }
 
@@ -120,14 +108,16 @@ class InvoiceExtractor:
 
         return lines
 
-    def set_tax_identificacion_supplier(self, valid_tax_ids: List) -> str:
+    def set_tax_identificacion_supplier(
+        self, valid_tax_ids: List, cif_cred: CredentialOut
+    ) -> str:
 
         threshold = 0.9
 
         filtered_tax_id = [
             tax_id
             for tax_id in valid_tax_ids
-            if difflib.SequenceMatcher(None, settings.CIF, tax_id).ratio() < threshold
+            if difflib.SequenceMatcher(None, cif_cred.value, tax_id).ratio() < threshold
         ]
 
         if len(filtered_tax_id) == 1:
