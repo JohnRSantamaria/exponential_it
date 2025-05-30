@@ -4,3 +4,8 @@ class CustomAppException(Exception):
         self.message = message
         self.data = data or {}
         self.status_code = status_code
+
+
+class InvoiceParsingError(CustomAppException):
+    def __init__(self, detail: str):
+        super().__init__(f"Error al parsear factura: {detail}", status_code=422)

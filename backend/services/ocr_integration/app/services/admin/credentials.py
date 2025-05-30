@@ -1,9 +1,9 @@
 from sqlalchemy.orm import Session
+from app.core.types import InvoiceParsingError
 from app.db.models.service import ServiceCredential, UserService
 from app.db.session import SessionLocal
 from app.services.admin.schemas import CredentialOut
 from sqlalchemy import func
-from app.core.exceptions import CustomAppException
 
 
 def get_credentials_for_user(user_id: int) -> list[CredentialOut]:
@@ -37,7 +37,7 @@ def get_credential_by_key(user_id: int, key: str) -> CredentialOut:
         )
 
         if not credential:
-            raise CustomAppException(
+            raise InvoiceParsingError(
                 message=f"No se encontró la credencial con clave '{key}'",
                 status_code=404,
             )

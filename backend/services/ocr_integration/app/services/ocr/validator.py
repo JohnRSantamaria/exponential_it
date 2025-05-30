@@ -8,11 +8,11 @@ def valid_json(payload: str) -> dict:
     Lanza un RequestValidationError si es inválido.
     """
     try:
-        parsed_payload = json.loads(payload)
-        if not isinstance(parsed_payload, dict):
+        ocr_data = json.loads(payload)
+        if not isinstance(ocr_data, dict):
             raise ValueError()
 
-        return parsed_payload
+        return ocr_data
 
     except (json.JSONDecodeError, ValueError):
         raise RequestValidationError(
