@@ -1,15 +1,18 @@
 # app/core/logger.py
 
 import logging
-from logging.handlers import RotatingFileHandler
-from colorlog import ColoredFormatter
-from pathlib import Path
+import traceback
+import warnings
 
-from app.core.settings import settings 
+from pathlib import Path
+from colorlog import ColoredFormatter
+from logging.handlers import RotatingFileHandler
+
+from app.core.settings import settings
 
 
 def configure_logging():
-    log_file = settings.ERROR_LOG_FILE 
+    log_file = settings.ERROR_LOG_FILE
     log_dir = Path(log_file).parent
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -51,10 +54,19 @@ def configure_logging():
 
     # Configuración base
     logging.basicConfig(level=log_level, handlers=[file_handler, console_handler])
+    logger = logging.getLogger("app")
 
     # Ajustar loggers de librerías externas si es necesario
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
 
-    return logging.getLogger("app")
+    def custom_warning_handler(
+        message, category, filename, lineno, file=None, line=None
+    ):
+        if issubclass(category, RuntimeWarning):
+            logger.warning(f"RuntimeWarning: {message} ({filename}:{lineno})")
+
+    warnings.showwarning = custom_warning_handler
+
+    return logger

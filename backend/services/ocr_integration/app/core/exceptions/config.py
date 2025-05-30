@@ -10,8 +10,8 @@ from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
-from app.core.format import format_error_response
-from app.core.types import CustomAppException
+from app.core.exceptions.format import format_error_response
+from app.core.exceptions.types import CustomAppException
 from app.core.logger import configure_logging
 
 logger = configure_logging()

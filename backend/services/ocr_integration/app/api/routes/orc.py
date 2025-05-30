@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, File, Form, UploadFile
 from app.api.dependencies import required_service
 
 
+from app.core.adapter.base import get_provider
 from app.services.ocr.parser_ocr import parser_invoice, parser_supplier
 from app.services.ocr.validator import valid_json
 from app.services.admin.schemas import UserDataSchema
-from app.services.ocr.extractor import InvoiceExtractor
 from app.services.admin.credentials import get_credential_by_key
+from app.core.enums import ServicesEnum
 
 router = APIRouter(prefix="/ocr", tags=["ocr"])
 
@@ -29,4 +30,8 @@ async def ocr_invoices(
     invoice = parser_invoice(cif=cif, ocr_data=ocr_data)
     supplier = parser_supplier(cif=cif, ocr_data=ocr_data)
 
-    return invoice.model_dump(mode="json")
+    provider = get_provider(ServicesEnum.ZOHO)
+
+    print(await provider.get_all_contacts())
+
+    return invoice.model_dump(exclude_none=True, mode="json")

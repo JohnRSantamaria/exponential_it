@@ -1,9 +1,9 @@
 from datetime import datetime
-from app.services.admin.schemas import CredentialOut
-from app.services.ocr.enums import InvoiceState
 from typing import Any, Dict, List
 
-from app.services.ocr.schemas import Invoice, InvoiceLine, SupplierInvoice
+from app.services.ocr.enums import InvoiceState
+from app.services.admin.schemas import CredentialOut
+from app.services.ocr.schemas import Invoice, InvoiceLine, Supplier
 
 
 class InvoiceExtractor:
@@ -58,8 +58,8 @@ class InvoiceExtractor:
 
         return invoice
 
-    def extract_supplier(self) -> SupplierInvoice:
-        return SupplierInvoice(
+    def extract_supplier(self) -> Supplier:
+        return Supplier(
             name=self.ocr_data.get("merchantName", {}).get("data", ""),
             vat=self.ocr_data.get("merchantTaxId", {}).get("data", ""),
             address={

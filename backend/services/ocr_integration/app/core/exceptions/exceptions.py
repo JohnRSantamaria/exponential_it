@@ -6,9 +6,9 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
-from app.core.format import format_error_response
+from app.core.exceptions.format import format_error_response
 from app.core.logger import configure_logging
-from app.core.types import CustomAppException
+from app.core.exceptions.types import CustomAppException
 
 logger = configure_logging()
 

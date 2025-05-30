@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.core.types import InvoiceParsingError
+from app.core.exceptions.types import InvoiceParsingError
 from app.db.models.service import ServiceCredential, UserService
 from app.db.session import SessionLocal
 from app.services.admin.schemas import CredentialOut

@@ -46,7 +46,7 @@ class Address(BaseModel):
     postal_code: Optional[str] = Field(None, title="Postal Code")
 
 
-class SupplierInvoice(BaseModel):
+class Supplier(BaseModel):
     name: str = Field(None, title="Supplier Name")
     vat: str = Field(None, title="CIF/NIF")
     address: Address = Field(..., title="Address")

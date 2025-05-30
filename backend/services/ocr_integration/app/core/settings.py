@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     # Crypto keys
     CRYPTO_KEY: str
 
+    # services url
+    URL_ZOHO: str
+
     # Conversión de string a Path si se define por entorno
     @field_validator("ERROR_LOG_FILE", mode="before")
     @classmethod

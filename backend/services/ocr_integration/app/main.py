@@ -1,4 +1,5 @@
 # Punto de entrada principal de la app FastAPI
+import warnings
 import httpx
 
 from fastapi import FastAPI
@@ -6,19 +7,24 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import ValidationError
 
+
 from app.api.routes import orc
-from app.core.config import GlobalExceptionMiddleware
-from app.core.types import CustomAppException
-from app.core.exceptions import (
-    http_exception_handler,
-    validation_exception_handler,
-    pydantic_validation_handler,
-    httpx_error_handler,
+from app.core.logger import configure_logging
+from app.core.exceptions.types import CustomAppException
+from app.core.exceptions.config import GlobalExceptionMiddleware
+from app.core.exceptions.exceptions import (
     custom_app_exception_handler,
     general_exception_handler,
+    http_exception_handler,
+    httpx_error_handler,
+    pydantic_validation_handler,
+    validation_exception_handler,
 )
 
 app = FastAPI()
+
+# Logger
+logger = configure_logging()
 
 # Middleware global para manejar excepciones
 app.add_middleware(GlobalExceptionMiddleware)
