@@ -1,0 +1,13 @@
+services:
+    zoho_integration:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: zoho_integration
+        command: uvicorn app.main:app --host 0.0.0.0 --port 8002
+        volumes:
+            - ./app:/code
+        env_file:
+            - .env.prod
+        ports:
+            - '8002:8002'
