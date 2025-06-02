@@ -11,10 +11,10 @@ from app.services.admin.schemas import UserDataSchema
 from app.services.admin.credentials import get_credential_by_key
 from app.core.enums import ServicesEnum
 
-router = APIRouter(prefix="/ocr", tags=["ocr"])
+router = APIRouter()
 
 
-@router.post("/invoices")
+@router.post("/")
 async def ocr_invoices(
     payload: Annotated[str, Form(...)],
     file: Annotated[UploadFile, File(...)],

@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import ValidationError
 
-from app.api.routes import base
+from app.api.routes import auth
 from app.core.logger import configure_logging
 from app.core.exceptions.types import CustomAppException
 from app.core.exceptions.config import GlobalExceptionMiddleware
@@ -28,7 +28,7 @@ logger = configure_logging()
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Rutas
-app.include_router(base.router, prefix="/api/v1")
+app.include_router(auth.router, prefix="/api/v1/zoho")
 
 # Handles global exceptions
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)

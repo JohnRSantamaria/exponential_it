@@ -28,7 +28,7 @@ logger = configure_logging()
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Rutas
-app.include_router(orc.router, prefix="/api/v1")
+app.include_router(orc.router, prefix="/api/v1/ocr", tags=["ocr"])
 
 # Handles global exceptions
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
