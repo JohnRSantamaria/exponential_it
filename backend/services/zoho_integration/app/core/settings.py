@@ -37,6 +37,21 @@ class Settings(BaseSettings):
     # Crypto keys
     CRYPTO_KEY: str
 
+    # Zoho credentials
+    ZOHO_CLIENT_ID: str
+    ZOHO_CLIENT_SECRET: str
+    # Zoho URLs
+    ZOHO_BASE_URL: str
+    ZOHO_API_DOMAIN: str
+    # Zoho url de redirección
+    ZOHO_REDIRECT_URI: str
+
+    # Token route
+    TOKEN_FILE: Path = Field(default=BASE_DIR / "app" / "token" / "zoho_token.json")
+    ORGANIZATION_FILE: Path = Field(
+        default=BASE_DIR / "app" / "token" / "organization_id.json"
+    )
+
     # Conversión de string a Path si se define por entorno
     @field_validator("ERROR_LOG_FILE", mode="before")
     @classmethod
