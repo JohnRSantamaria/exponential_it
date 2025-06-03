@@ -1,3 +1,4 @@
+# applications\users\models.py
 from django.contrib.auth.models import (
     AbstractBaseUser,
     PermissionsMixin,
@@ -28,13 +29,12 @@ class UserManager(BaseUserManager):
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
     is_active = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["name", "last_name"]
+    REQUIRED_FIELDS = ["name"]
 
     objects = UserManager()
 

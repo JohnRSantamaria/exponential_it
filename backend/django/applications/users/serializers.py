@@ -1,3 +1,4 @@
+# applications\users\serializers.py
 from rest_framework import serializers
 from .models import User
 
@@ -5,7 +6,7 @@ from .models import User
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "name", "last_name", "is_active", "date_joined"]
+        fields = ["id", "email", "name", "is_active", "date_joined"]
 
 
 class UserCreateSerializer(serializers.ModelSerializer):
@@ -13,7 +14,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["email", "name", "last_name", "password"]
+        fields = ["email", "name", "is_active", "password"]
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)

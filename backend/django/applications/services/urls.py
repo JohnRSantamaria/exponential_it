@@ -1,8 +1,9 @@
-# applications/services/api/urls.py
-
+# applications/accounts/urls.py
 from django.urls import path
-from .views import ActiveServiceCredentialsView
+
+
+from .views import ServicesAccounts
 
 urlpatterns = [
-    path("<str:service_code>/", ActiveServiceCredentialsView.as_view()),
+    path("", ServicesAccounts.as_view(), name="accounts"),
 ]

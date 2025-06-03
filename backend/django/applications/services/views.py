@@ -1,32 +1,16 @@
-# applications/services/api/views.py
-
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .models import UserService
+from rest_framework.views import APIView
+
+from services.serializers import ServiceSerializer
+from .models import Service
 
 
-class ActiveServiceCredentialsView(APIView):
-    permission_classes = [IsAuthenticated]
+class ServicesAccounts(APIView):
+    permission_classes = []
 
-    def get(self, request, service_id):
-        user = request.user
-        keys_requested = request.query_params.get("keys")
+    def get(self, request):
+        services = Service.objects.all()
 
-        try:
-            user_service = UserService.objects.get(
-                user=user, service_id=service_id, is_active=True
-            )
-        except UserService.DoesNotExist:
-            return Response(
-                {"detail": "Servicio no activo o no encontrado."}, status=404
-            )
+        serializer = ServiceSerializer(services, many=True)
 
-        credentials_qs = user_service.credentials.all()
-
-        if keys_requested:
-            requested_keys = [k.strip() for k in keys_requested.split(",")]
-            credentials_qs = credentials_qs.filter(key__in=requested_keys)
-
-        data = {cred.key: cred.value for cred in credentials_qs}
-        return Response(data)
+        return Response(serializer.data)

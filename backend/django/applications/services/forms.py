@@ -14,7 +14,7 @@ class ServiceCredentialForm(forms.ModelForm):
 
     class Meta:
         model = ServiceCredential
-        fields = ["user_service", "key", "is_secret", "value"]
+        fields = ["account_service", "key", "is_secret", "value"]
 
     def save(self, commit=True):
         instance: ServiceCredential = super().save(commit=False)

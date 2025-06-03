@@ -1,9 +1,10 @@
+# applications\services\models.py
 from django.db import models
 from django.utils import timezone
 
 
+from accounts.models import Account
 from core.log_utils import decrypt_value, encrypt_value
-from users.models import User
 
 
 class Service(models.Model):
@@ -15,24 +16,25 @@ class Service(models.Model):
         return self.name
 
 
-class UserService(models.Model):
-    user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="user_services"
+class AccountService(models.Model):
+    account = models.ForeignKey(
+        Account, on_delete=models.CASCADE, related_name="account_services"
     )
     service = models.ForeignKey(Service, on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
     date_subscribed = models.DateTimeField(default=timezone.now)
 
     class Meta:
-        unique_together = ("user", "service")
+        unique_together = ("account", "service")
 
     def __str__(self):
-        return f"{self.user.email} - {self.service.code}"
+        return f"{self.service.name} | {self.account.name}"
 
 
 class ServiceCredential(models.Model):
-    user_service = models.ForeignKey(
-        "UserService", on_delete=models.CASCADE, related_name="credentials"
+
+    account_service = models.ForeignKey(
+        AccountService, on_delete=models.CASCADE, related_name="credentials"
     )
     key = models.CharField(max_length=100)
     _value = models.BinaryField(db_column="value")
@@ -53,3 +55,6 @@ class ServiceCredential(models.Model):
     @value.setter
     def value(self, val: str):
         self._value = encrypt_value(val) if self.is_secret else val.encode()
+
+    def __str__(self):
+        return f"{self.account_service} : {self.key}"

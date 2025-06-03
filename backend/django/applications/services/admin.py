@@ -1,8 +1,9 @@
 # applications/services/admin.py
 
 from django.contrib import admin
-from .models import Service, UserService, ServiceCredential
-from .forms import ServiceCredentialForm
+
+from services.forms import ServiceCredentialForm
+from .models import AccountService, Service, ServiceCredential
 
 
 @admin.register(Service)
@@ -10,18 +11,18 @@ class ServiceAdmin(admin.ModelAdmin):
     list_display = ("code", "name")
 
 
-@admin.register(UserService)
-class UserServiceAdmin(admin.ModelAdmin):
-    list_display = ("user", "service", "is_active", "date_subscribed")
+@admin.register(AccountService)
+class AccountServiceAdmin(admin.ModelAdmin):
+    list_display = ("account", "service", "is_active", "date_subscribed")
     list_filter = ("is_active", "service")
-    search_fields = ("user__email",)
+    search_fields = ("account__name",)
 
 
 @admin.register(ServiceCredential)
 class ServiceCredentialAdmin(admin.ModelAdmin):
     form = ServiceCredentialForm
     list_display = (
-        "user_service",
+        "account_service",
         "key",
         "display_value",
         "is_secret",
@@ -29,7 +30,6 @@ class ServiceCredentialAdmin(admin.ModelAdmin):
         "updated",
     )
     readonly_fields = ("created", "updated")
-    search_fields = ("user_service__user__email", "key")
 
     def display_value(self, obj):
         return "-" if obj.is_secret else obj.value
