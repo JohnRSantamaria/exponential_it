@@ -27,7 +27,6 @@ async def ocr_invoices(
     Esta ruta procesa documentos OCR solo si el usuario está autenticado correctamente con un JWT emitido por Django.
     """
     cif = get_credential_by_key(user_id=user_data.user_id, key="CIF")
-    creds = get_credentials_for_user(user_id=user_data.user_id)
     ocr_data = valid_json(payload)
 
     invoice = parser_invoice(cif=cif, ocr_data=ocr_data)
