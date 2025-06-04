@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Query, Request
 import httpx
-from app.core.settings import settings
 import urllib.parse
 
+from fastapi import APIRouter, Query, Request
+
+from app.core.settings import settings
 from app.services.zoho.client import zoho_get
 from app.services.zoho.tokens import (
     load_organization_id,
