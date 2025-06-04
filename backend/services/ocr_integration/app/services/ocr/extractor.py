@@ -87,8 +87,8 @@ class InvoiceExtractor:
             data = item.get("data", {})
             product_name = data.get("name", {}).get("data", "")
             quantity = float(data.get("quantity", {}).get("data", 1))
-            price_unit = float(data.get("totalPrice", {}).get("data", 0.0))
-
+            price_unit = float(data.get("unitPrice", {}).get("data", 0.0))
+            total_price = float(data.get("total¨Price", {}).get("data", 0.0))
             subtotal = round(quantity * price_unit, 2)
 
             line = InvoiceLine(
@@ -97,9 +97,8 @@ class InvoiceExtractor:
                 quantity=quantity,
                 price_unit=price_unit,
                 discount=0.0,
-                taxes=[],
                 subtotal=subtotal,
-                total=subtotal,  # TODO : impuestos si se encuentran
+                total=total_price,
             )
             lines.append(line)
 

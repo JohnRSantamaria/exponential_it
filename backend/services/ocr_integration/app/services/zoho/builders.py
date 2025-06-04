@@ -1,4 +1,8 @@
 from app.services.ocr.schemas import Invoice, Supplier
+from app.services.zoho.schemas.create_bill import (
+    CreateZohoBillRequest,
+    LineItem as ZohoLineItem,
+)
 from app.services.zoho.schemas.create_contact import (
     CreateZohoContactRequest,
     Address as ZohoAddress,
@@ -35,3 +39,7 @@ def build_zoho_contact_payload(supplier: Supplier) -> CreateZohoContactRequest:
         email=supplier.email,
         phone=supplier.phone,
     )
+
+
+def build_zoho_invoice_payload(invoice: Invoice) -> CreateZohoBillRequest:
+    return CreateZohoBillRequest()

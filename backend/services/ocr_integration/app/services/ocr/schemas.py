@@ -11,9 +11,10 @@ class InvoiceLine(BaseModel):
     quantity: float = Field(..., title="Cantidad")
     price_unit: float = Field(..., title="Precio Unitario")
     discount: float = Field(..., title="Descuento")
-    taxes: List = Field(default_factory=list, title="Impuestos")
+    tax_id: Optional[str] = Field(None, title="ID del impuesto")
+    tax_percentage: Optional[float] = Field(None, title="porcentaje del impuesto")
     subtotal: float = Field(..., title="Subtotal")
-    total: float = Field(..., title="Total")
+    total: Optional[float] = Field(0.0, title="Total")
 
 
 class Invoice(BaseModel):
@@ -54,5 +55,3 @@ class Supplier(BaseModel):
     fax: Optional[str] = Field(None, title="Fax")
     email: Optional[str] = Field(None, title="Email")
     website: Optional[str] = Field(None, title="Website")
-
-

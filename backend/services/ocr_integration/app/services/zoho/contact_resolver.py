@@ -1,25 +1,15 @@
-import difflib
 from typing import List
 from pydantic import TypeAdapter
 
-from app.core.enums import ServicesEnum
-from app.core.adapter.base import get_provider
-from app.core.interface.account_provider import AccountingProvider
 from app.core.logger import configure_logging
+from app.core.interface.account_provider import AccountingProvider
+
 from app.services.ocr.schemas import Invoice, Supplier
-from app.services.zoho.schemas.responses import ZohoContact
+from app.services.zoho.schemas.contact_response import ZohoContact
+
+from app.utils.comparator import are_similar
 
 logger = configure_logging()
-
-
-def are_similar(a: str, b: str, threshold: float = 0.9) -> bool:
-    """Compara dos strings y retorna True si son al menos `threshold` similares."""
-    if not a or not b:
-        return False
-    return (
-        difflib.SequenceMatcher(None, a.strip().lower(), b.strip().lower()).ratio()
-        >= threshold
-    )
 
 
 def extract_cifs(contact: ZohoContact) -> List[str]:
