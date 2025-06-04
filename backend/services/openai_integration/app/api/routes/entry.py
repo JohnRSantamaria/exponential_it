@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, Body
 from app.core.exceptions.types import CustomAppException
+from app.services.openai.account_classifier import classify_account
 from app.services.zoho.schemas.chart_of_accounts_response import ZohoAccount
 
 
@@ -15,8 +16,4 @@ async def classify_expense(
     """
     Clasifica un gasto usando un plan contable (ZohoAccount).
     """
-
-    raise CustomAppException(
-        status_code=503,
-        message="service is currently unavailable",
-    )
+    return await classify_account(text=text, chart=chart_of_accounts)
