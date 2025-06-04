@@ -1,14 +1,16 @@
 import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, Optional, List, Union
 
 
 class ZohoBill(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     bill_id: str
     vendor_id: str
     vendor_name: str
     status: str
-    color_code: Optional[str] = None 
+    color_code: Optional[str] = None
     current_sub_status_id: Optional[str] = None
     current_sub_status: Optional[str] = None
     bill_number: str
