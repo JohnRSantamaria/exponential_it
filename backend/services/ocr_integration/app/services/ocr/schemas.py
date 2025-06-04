@@ -54,3 +54,5 @@ class Supplier(BaseModel):
     fax: Optional[str] = Field(None, title="Fax")
     email: Optional[str] = Field(None, title="Email")
     website: Optional[str] = Field(None, title="Website")
+
+

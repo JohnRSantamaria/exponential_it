@@ -6,14 +6,9 @@ from app.services.ocr.schemas import Invoice, Supplier
 
 class AccountingProvider(ABC):
 
-    # @abstractmethod
-    # async def create_vendor(self, vendor: Supplier) -> dict:
-    #     pass
-
+    @abstractmethod
     async def create_vendor(self, vendor: Supplier) -> dict:
-        raise NotImplementedError(
-            "create_vendor() no está implementado para este proveedor"
-        )
+        pass
 
     async def create_bill(self, bill: Invoice) -> dict:
         raise NotImplementedError(

@@ -8,6 +8,8 @@ from sqlalchemy import (
     DateTime,
     LargeBinary,
     String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -20,28 +22,35 @@ class Service(Base):
     id = Column(Integer, primary_key=True, index=True)
     code = Column(String(50), unique=True)
     name = Column(String(100))
-    description = Column(String)
+    description = Column(Text)
+
+    account_services = relationship("AccountService", back_populates="service")
 
 
-class UserService(Base):
-    __tablename__ = "services_userservice"
+class AccountService(Base):
+    __tablename__ = "services_accountservice"
+    __table_args__ = (
+        UniqueConstraint("account_id", "service_id", name="_account_service_uc"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
-    is_active = Column(Boolean, default=True)
-    date_subscribed = Column(DateTime, default=datetime.utcnow)
+    account_id = Column(Integer, ForeignKey("accounts_account.id"))
     service_id = Column(Integer, ForeignKey("services_service.id"))
-    user_id = Column(Integer, ForeignKey("users.id"))
 
-    credentials = relationship("ServiceCredential", back_populates="user_service")
+    account = relationship("Account", back_populates="account_services")
+    service = relationship("Service", back_populates="account_services")
+    credentials = relationship("ServiceCredential", back_populates="account_service")
 
 
 class ServiceCredential(Base):
     __tablename__ = "services_servicecredential"
 
     id = Column(Integer, primary_key=True, index=True)
-    key = Column(String)
+    account_service_id = Column(Integer, ForeignKey("services_accountservice.id"))
+    key = Column(String(100))
     value = Column(LargeBinary)
     is_secret = Column(Boolean, default=False)
-    user_service_id = Column(Integer, ForeignKey("services_userservice.id"))
+    created = Column(DateTime, default=datetime.utcnow)
+    updated = Column(DateTime, default=datetime.utcnow)
 
-    user_service = relationship("UserService", back_populates="credentials")
+    account_service = relationship("AccountService", back_populates="credentials")

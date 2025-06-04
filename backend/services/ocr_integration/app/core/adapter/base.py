@@ -8,7 +8,12 @@ from app.core.interface.account_provider import AccountingProvider
 
 def get_provider(service: ServicesEnum) -> AccountingProvider:
     if service == ServicesEnum.ZOHO:
-        return ZohoAdapter(config=ProviderConfig(server_url=settings.URL_ZOHO))
+        return ZohoAdapter(
+            config=ProviderConfig(
+                server_url=settings.URL_ZOHO,
+                api_prefix="/api/v1/zoho/books",
+            )
+        )
     if service == ServicesEnum.ODOO:
         return OdooAdapter(config=ProviderConfig(server_url=""))
     else:

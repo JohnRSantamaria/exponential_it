@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Dict, Union
+from typing import List
 
 from app.core.crypto import decrypt_value
 
@@ -7,16 +7,16 @@ from app.core.crypto import decrypt_value
 class UserDataSchema(BaseModel):
     user_id: int
     email: str
-    active_subscriptions: List[Dict[int, str]]
+    active_subscriptions: List[int]
     exp: int
 
     class Config:
-        from_attributes = True  # Reemplaza orm_mode en Pydantic
+        from_attributes = True  # Pydantic v2 — reemplaza orm_mode
 
 
 class CredentialOut(BaseModel):
     key: str
-    value: str  # siempre entregamos string para JSON
+    value: str  # Siempre string para ser JSON-safe
 
     class Config:
         from_attributes = True
@@ -24,12 +24,18 @@ class CredentialOut(BaseModel):
     @classmethod
     def from_orm_safe(cls, cred) -> "CredentialOut":
         raw_value = cred.value
-        is_secret = cred.is_secret
+        if isinstance(raw_value, memoryview):
+            raw_value = raw_value.tobytes()
 
-        if is_secret:
-            value = decrypt_value(raw_value)
+        if cred.is_secret:
+            decrypted = decrypt_value(raw_value)
+            value = (
+                decrypted.decode() if isinstance(decrypted, bytes) else str(decrypted)
+            )
         else:
-            value = raw_value
+            value = (
+                raw_value.decode() if isinstance(raw_value, bytes) else str(raw_value)
+            )
 
         key = str(cred.key).lower().strip()
 
