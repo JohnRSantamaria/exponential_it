@@ -15,10 +15,9 @@ from app.utils.comparator import are_similar
 logger = configure_logging()
 
 
-async def get_or_create_bill_id(
+async def get_bill_id(
     invoice: Invoice,
     provider: AccountingProvider,
-    service: OpenAIService,
 ):
     """Busca un bill_id usando el vendor id y el bill numeber si no existe lo crea."""
 
@@ -40,6 +39,12 @@ async def get_or_create_bill_id(
 
     logger.warning("No se encontró una factura similar, creando nueva factura...")
 
+
+async def create_bill_id(
+    invoice: Invoice,
+    provider: AccountingProvider,
+    service: OpenAIService,
+):
     # Incluir taxes
     logger.info("Creación u obtención de impuestos")
     await get_tax_id(invoice=invoice, provider=provider)

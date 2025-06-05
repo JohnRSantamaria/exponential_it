@@ -2,8 +2,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 
 from app.api.dependencies import required_service
+from app.core.enums import UploadersEnum
 from app.core.logger import configure_logging
 from app.services.ocr.validator import valid_json
+from app.services.upload.process import save_file
 from app.services.zoho.process import zoho_process
 from app.services.admin.schemas import UserDataSchema
 from app.services.admin.credentials import get_credential_by_key
@@ -36,6 +38,13 @@ async def ocr_invoices(
         supplier=supplier,
         file=file,
         file_content=file_content,
+    )
+
+    await save_file(
+        invoice=invoice,
+        file_content=file_content,
+        file=file,
+        uploader_name=UploadersEnum.DROPBOX,
     )
 
     logger.info("Proceso de Optical Character Recognition (OCR) finalizado.")

@@ -41,6 +41,12 @@ class Settings(BaseSettings):
     URL_ZOHO: str
     URL_OPENAPI: str
 
+    # Dropbox Credentials
+    DROPBOX_ACCESS_TOKEN: str | None = None
+    DROPBOX_REFRESH_TOKEN: str | None = None
+    DROPBOX_APP_KEY: str | None = None
+    DROPBOX_APP_SECRET: str | None = None
+
     # Timeout para HTTPX
     HTTP_TIMEOUT_CONNECT: float = Field(
         default=10.0,
