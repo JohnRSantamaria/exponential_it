@@ -19,9 +19,9 @@ class InvoiceLine(BaseModel):
 
 
 class Invoice(BaseModel):
-    partner_id: Optional[int] = Field(None, title="ID del Proveedor")
+    partner_id: Optional[int] = Field(None, title="ID del Proveedor en Zoho")
     partner_name: str = Field(None, title="Nombre del Proveedor")
-    partner_vat: Optional[str] = Field(None, title="VAT del Proveedor")
+    partner_vat: Optional[str] = Field(None, title="VAT del Proveedor en la factura")
     date_invoice: Optional[datetime.date] = Field(None, title="Fecha de la Factura")
     date_due: Optional[datetime.date] = Field(None, title="Fecha de Vencimiento")
     currency_id: Optional[str] = Field(None, title="Moneda")
@@ -36,7 +36,7 @@ class Invoice(BaseModel):
     amount_total: Optional[float] = Field(None, title="Total de la Factura")
     payment_term_id: Optional[int] = Field(None, title="ID de Término de Pago")
     payment_reference: Optional[str] = Field(None, title="Referencia de Pago")
-    company_id: Optional[int] = Field(None, title="ID de la Empresa")
+    company_vat: Optional[int] = Field(None, description="ID de la Empresa")
     company_name: Optional[str] = Field(None, title="Nombre de la Empresa")
     account_category: Optional[AccountCategory] = Field(
         None, title="Solo valido para Zoho"
@@ -53,7 +53,7 @@ class Address(BaseModel):
 
 class Supplier(BaseModel):
     name: str = Field(None, title="Supplier Name")
-    vat: str = Field(None, title="CIF/NIF")
+    vat: str = Field(None, title="CIF/NIF/VAT")
     address: Address = Field(..., title="Address")
     phone: Optional[str] = Field(None, title="Phone")
     fax: Optional[str] = Field(None, title="Fax")

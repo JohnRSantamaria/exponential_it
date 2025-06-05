@@ -1,4 +1,7 @@
 # app/core/types.py
+from typing import List
+
+
 class CustomAppException(Exception):
     def __init__(self, message: str, data: dict = None, status_code: int = 400):
         self.message = message
@@ -23,4 +26,13 @@ class TaxIdNotFoundError(CustomAppException):
                 "invoice_number": invoice_number,
                 "candidates": candidates,
             },
+        )
+
+
+class ValidTaxIdNotFoundError(CustomAppException):
+    def __init__(self, raw_ids: List[str]):
+        super().__init__(
+            message="No se encontraron identificadores fiscales válidos.",
+            status_code=422,
+            data={"candidates": raw_ids},
         )

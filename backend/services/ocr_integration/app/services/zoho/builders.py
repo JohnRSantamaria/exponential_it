@@ -41,19 +41,16 @@ def build_zoho_contact_payload(supplier: Supplier) -> CreateZohoContactRequest:
 
 
 def build_zoho_invoice_payload(invoice: Invoice) -> CreateZohoBillRequest:
-    invoice_lines = invoice.invoice_lines
-    line_items: List[ZohoLineItem] = []
 
-    for line in invoice_lines:
-        line_items.append(
-            ZohoLineItem(
-                name=line.product_name,
-                quantity=line.quantity,
-                rate=line.price_unit,
-                account_id=invoice.account_category.account_id,
-                tax_id=line.tax_id,
-            )
+    line_item = [
+        ZohoLineItem(
+            name="Conglomerado de todos los servicios",
+            quantity=1,
+            rate=invoice.amount_untaxed,
+            account_id=invoice.account_category.account_id,
+            tax_id=invoice.invoice_lines[0].tax_id,
         )
+    ]
 
     return CreateZohoBillRequest(
         vendor_id=invoice.partner_id,
@@ -62,6 +59,6 @@ def build_zoho_invoice_payload(invoice: Invoice) -> CreateZohoBillRequest:
         tax_total=invoice.amount_tax,
         sub_total=invoice.amount_untaxed,
         total=invoice.amount_total,
-        line_items=line_items,
+        line_items=line_item,
         notes="Factura generada automáticamente por OCR",
     )

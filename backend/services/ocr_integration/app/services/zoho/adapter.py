@@ -1,5 +1,6 @@
 from fastapi import UploadFile
 import httpx
+from app.core.settings import settings
 from app.core.interface.account_provider import AccountingProvider
 from app.core.interface.provider_config import ProviderConfig
 from app.services.ocr.schemas import Invoice, Supplier
@@ -19,7 +20,14 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/contact"
         payload = build_zoho_contact_payload(supplier=vendor)
 
-        async with httpx.AsyncClient() as client:
+        timeout = httpx.Timeout(
+            connect=settings.HTTP_TIMEOUT_CONNECT,
+            read=settings.HTTP_TIMEOUT_READ,
+            write=settings.HTTP_TIMEOUT_WRITE,
+            pool=settings.HTTP_TIMEOUT_POOL,
+        )
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(url, json=payload.clean_payload())
 
         return response.json()
@@ -29,7 +37,14 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/bill"
         payload = build_zoho_invoice_payload(invoice=bill)
 
-        async with httpx.AsyncClient() as client:
+        timeout = httpx.Timeout(
+            connect=settings.HTTP_TIMEOUT_CONNECT,
+            read=settings.HTTP_TIMEOUT_READ,
+            write=settings.HTTP_TIMEOUT_WRITE,
+            pool=settings.HTTP_TIMEOUT_POOL,
+        )
+
+        async with httpx.AsyncClient(timeout=timeout) as client:
             response = await client.post(url, json=payload.clean_payload())
 
         return response.json()

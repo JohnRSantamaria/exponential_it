@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 from app.api.dependencies import required_service
 from app.core.enums import UploadersEnum
 from app.core.logger import configure_logging
+from app.services.ocr.utils.supplier_tax_id import extract_supplier_tax_id
 from app.services.ocr.validator import valid_json
 from app.services.upload.process import save_file
 from app.services.zoho.process import zoho_process
@@ -30,6 +31,11 @@ async def ocr_invoices(
     ocr_data = valid_json(payload)
     invoice = parser_invoice(cif=cif, ocr_data=ocr_data)
     supplier = parser_supplier(cif=cif, ocr_data=ocr_data)
+    partner_vat = extract_supplier_tax_id(ocr_data=ocr_data, cif=cif.value)
+
+    # Fix partner VAT
+    invoice.partner_vat = partner_vat
+    supplier.vat = partner_vat
 
     file_content = await file.read()
 

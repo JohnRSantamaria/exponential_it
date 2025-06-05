@@ -54,6 +54,7 @@ class InvoiceExtractor:
             amount_total=amount_total,
             amount_tax=amount_tax,
             amount_untaxed=amount_untaxed,
+            company_id=self.cif,
         )
 
         return invoice

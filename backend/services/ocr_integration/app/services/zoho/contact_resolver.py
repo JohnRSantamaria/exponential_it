@@ -23,10 +23,10 @@ def extract_cifs(contact: ZohoContactResponse) -> List[str]:
     return cifs
 
 
-async def get_or_create_contact_id(
-    invoice_cif: str | None, supplier: Supplier, provider: AccountingProvider
+async def get_or_create_partner_id(
+    partner_vat: str | None, supplier: Supplier, provider: AccountingProvider
 ) -> str:
-    """Busca un contacto por CIF o lo crea si no existe, retornando el contact_id."""
+    """Busca un contacto por CIF o lo crea si no existe, retornando el partner_id."""
 
     # Obtener y parsear contactos
     raw_contacts = await provider.get_all_contacts()
@@ -34,10 +34,10 @@ async def get_or_create_contact_id(
         List[ZohoContactResponse]
     ).validate_python(raw_contacts)
 
-    logger.info(f"Buscando contacto con CIF similar a: {invoice_cif}")
+    logger.info(f"Buscando contacto con partner vat similar a: {partner_vat}")
 
     for contact in contacts:
-        if any(are_similar(cif, invoice_cif) for cif in extract_cifs(contact)):
+        if any(are_similar(cif, partner_vat) for cif in extract_cifs(contact)):
             logger.info(
                 f"Coincidencia encontrada: {contact.contact_name} ({contact.contact_id})"
             )
