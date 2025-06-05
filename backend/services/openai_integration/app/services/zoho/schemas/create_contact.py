@@ -1,8 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List, Union, Dict
 
-from app.core.utils.base_models import BaseSanitizedModel
-
 
 class Address(BaseModel):
     attention: Optional[str] = None
@@ -53,7 +51,7 @@ class OpeningBalance(BaseModel):
     opening_balance_amount: float
 
 
-class CreateZohoContactRequest(BaseSanitizedModel):
+class CreateZohoContactRequest(BaseModel):
     contact_name: str
     company_name: Optional[str] = None
     website: Optional[str] = None
@@ -101,3 +99,20 @@ class CreateZohoContactRequest(BaseSanitizedModel):
     track_1099: Optional[bool] = None
     tax_id_type: Optional[str] = None
     tax_id_value: Optional[str] = None
+
+    def clean_payload(self) -> Dict:
+        """
+        Retorna un dict limpio, excluyendo campos None, vacíos, o listas vacías.
+        """
+
+        def is_useful(value):
+            if value is None:
+                return False
+            if isinstance(value, str) and value.strip() == "":
+                return False
+            if isinstance(value, list) and len(value) == 0:
+                return False
+            return True
+
+        raw = self.model_dump(exclude_none=True)
+        return {k: v for k, v in raw.items() if is_useful(v)}

@@ -1,10 +1,10 @@
-from typing import Optional, List
-from pydantic import BaseModel
+import datetime
+from typing import Dict, Optional, List, Union
 
 from app.core.utils.base_models import BaseSanitizedModel
 
 
-class ZohoBillResponse(BaseSanitizedModel):
+class ZohoBill(BaseSanitizedModel):
     bill_id: str
     vendor_id: str
     vendor_name: str
@@ -14,9 +14,9 @@ class ZohoBillResponse(BaseSanitizedModel):
     current_sub_status: Optional[str] = None
     bill_number: str
     reference_number: Optional[str] = None
-    date: str
-    due_date: str
-    due_days: Optional[str] = None
+    date: datetime.date
+    due_date: datetime.date
+    due_days: str
     currency_id: str
     currency_code: str
     price_precision: int
@@ -25,9 +25,9 @@ class ZohoBillResponse(BaseSanitizedModel):
     tds_total: float
     balance: float
     unprocessed_payment_amount: float
-    created_time: str
-    last_modified_time: str
-    is_opening_balance: str  # Esto parece un error en el nombre/campo en la API, revisar si debe ser booleano
+    created_time: datetime.datetime
+    last_modified_time: datetime.datetime
+    is_opening_balance: Union[bool, str]
     attachment_name: Optional[str] = None
     has_attachment: bool
     tags: List[str]

@@ -1,4 +1,6 @@
+import re
 import json
+
 from fastapi import HTTPException
 from pydantic import ValidationError
 
@@ -52,8 +54,13 @@ async def classify_account(text: str, chart: list[dict]) -> AccountCategory:
                 temperature=0.1,
                 max_tokens=300,
             )
+            content = response.choices[0].message.content.strip()
+            # Limpia bloques de código ```json o ```
+            cleaned = re.sub(
+                r"^```(json)?\s*|\s*```$", "", content, flags=re.IGNORECASE
+            ).strip()
 
-            raw = json.loads(response.choices[0].message.content)
+            raw = json.loads(cleaned)
             return AccountCategory(**raw)
 
         except (json.JSONDecodeError, ValidationError) as e:

@@ -5,14 +5,14 @@ from app.core.logger import configure_logging
 from app.core.interface.account_provider import AccountingProvider
 
 from app.services.ocr.schemas import Invoice, Supplier
-from app.services.zoho.schemas.contact_response import ZohoContact
+from app.services.zoho.schemas.contact_response import ZohoContactResponse
 
 from app.utils.comparator import are_similar
 
 logger = configure_logging()
 
 
-def extract_cifs(contact: ZohoContact) -> List[str]:
+def extract_cifs(contact: ZohoContactResponse) -> List[str]:
     """Extrae todos los posibles CIF de un contacto."""
     cifs = []
     if contact.cf_cif:
@@ -24,17 +24,16 @@ def extract_cifs(contact: ZohoContact) -> List[str]:
 
 
 async def get_or_create_contact_id(
-    invoice: Invoice, supplier: Supplier, provider: AccountingProvider
+    invoice_cif: str | None, supplier: Supplier, provider: AccountingProvider
 ) -> str:
     """Busca un contacto por CIF o lo crea si no existe, retornando el contact_id."""
 
     # Obtener y parsear contactos
     raw_contacts = await provider.get_all_contacts()
-    contacts: List[ZohoContact] = TypeAdapter(List[ZohoContact]).validate_python(
-        raw_contacts
-    )
+    contacts: List[ZohoContactResponse] = TypeAdapter(
+        List[ZohoContactResponse]
+    ).validate_python(raw_contacts)
 
-    invoice_cif = invoice.partner_vat
     logger.info(f"Buscando contacto con CIF similar a: {invoice_cif}")
 
     for contact in contacts:
@@ -47,8 +46,9 @@ async def get_or_create_contact_id(
     logger.warning("No se encontró proveedor, creando nuevo contacto...")
 
     vendor_data = await provider.create_vendor(supplier)
-    new_contact = ZohoContact(**vendor_data)
-    logger.info(
-        f"Contacto creado: {new_contact.contact_name} ({new_contact.contact_id})"
-    )
-    return new_contact.contact_id
+
+    contact_id = vendor_data.get("contact_id")
+
+    if not contact_id:
+        raise ValueError("La respuesta del proveedor no contiene 'contact_id'.")
+    return contact_id

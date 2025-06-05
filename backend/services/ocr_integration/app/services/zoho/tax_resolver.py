@@ -4,8 +4,8 @@ from pydantic import TypeAdapter
 
 from app.core.interface.account_provider import AccountingProvider
 from app.core.logger import configure_logging
-from app.services.ocr.schemas import Invoice, InvoiceLine
-from app.services.zoho.schemas.tax_response import ZohoTax
+from app.services.ocr.schemas import Invoice
+from app.services.zoho.schemas.tax_response import ZohoTaxResponse
 from app.core.exceptions.types import TaxIdNotFoundError
 
 logger = configure_logging()
@@ -35,7 +35,9 @@ def calculate_tax_percentage_candidates(
 async def get_tax_id(invoice: Invoice, provider: AccountingProvider) -> str:
     """Optiene tax_id y tax_percentage"""
     raw_taxes = await provider.get_all_taxes()
-    taxes: List[ZohoTax] = TypeAdapter(List[ZohoTax]).validate_python(raw_taxes)
+    taxes: List[ZohoTaxResponse] = TypeAdapter(List[ZohoTaxResponse]).validate_python(
+        raw_taxes
+    )
 
     candidate_set = calculate_tax_percentage_candidates(
         amount_untaxed=invoice.amount_untaxed,

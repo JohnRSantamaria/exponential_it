@@ -1,3 +1,4 @@
+from typing import List
 from app.services.ocr.schemas import Invoice, Supplier
 from app.services.zoho.schemas.create_bill import (
     CreateZohoBillRequest,
@@ -36,10 +37,31 @@ def build_zoho_contact_payload(supplier: Supplier) -> CreateZohoContactRequest:
                 customfield_id="6421233000000093205",
             )
         ],
-        email=supplier.email,
-        phone=supplier.phone,
     )
 
 
 def build_zoho_invoice_payload(invoice: Invoice) -> CreateZohoBillRequest:
-    return CreateZohoBillRequest()
+    invoice_lines = invoice.invoice_lines
+    line_items: List[ZohoLineItem] = []
+
+    for line in invoice_lines:
+        line_items.append(
+            ZohoLineItem(
+                name=line.product_name,
+                quantity=line.quantity,
+                rate=line.price_unit,
+                account_id=invoice.account_category.account_id,
+                tax_id=line.tax_id,
+            )
+        )
+
+    return CreateZohoBillRequest(
+        vendor_id=invoice.partner_id,
+        bill_number=invoice.invoice_origin,
+        date=invoice.date_invoice,
+        tax_total=invoice.amount_tax,
+        sub_total=invoice.amount_untaxed,
+        total=invoice.amount_total,
+        line_items=line_items,
+        notes="Factura generada automáticamente por OCR",
+    )

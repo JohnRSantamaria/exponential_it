@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import List, Any
-
+from typing import List
 from app.services.ocr.schemas import Invoice, Supplier
 
 
@@ -32,7 +31,7 @@ class AccountingProvider(ABC):
             "attach_file_to_bill() no está implementado para este proveedor"
         )
 
-    async def get_chart_of_accounts(self) -> List[Any]:
+    async def get_chart_of_accounts(self) -> List[dict]:
         raise NotImplementedError(
             "get_chart_of_accounts() no está implementado para este proveedor"
         )

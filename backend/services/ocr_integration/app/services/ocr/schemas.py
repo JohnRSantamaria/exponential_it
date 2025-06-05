@@ -1,8 +1,9 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from datetime import date
+import datetime
 
 from app.services.ocr.enums import InvoiceState
+from app.services.openai.schemas.account_category import AccountCategory
 
 
 class InvoiceLine(BaseModel):
@@ -21,8 +22,8 @@ class Invoice(BaseModel):
     partner_id: Optional[int] = Field(None, title="ID del Proveedor")
     partner_name: str = Field(None, title="Nombre del Proveedor")
     partner_vat: Optional[str] = Field(None, title="VAT del Proveedor")
-    date_invoice: Optional[date] = Field(None, title="Fecha de la Factura")
-    date_due: Optional[date] = Field(None, title="Fecha de Vencimiento")
+    date_invoice: Optional[datetime.date] = Field(None, title="Fecha de la Factura")
+    date_due: Optional[datetime.date] = Field(None, title="Fecha de Vencimiento")
     currency_id: Optional[str] = Field(None, title="Moneda")
     journal_id: Optional[int] = Field(None, title="ID del Diario Contable")
     invoice_origin: Optional[str] = Field(
@@ -37,6 +38,9 @@ class Invoice(BaseModel):
     payment_reference: Optional[str] = Field(None, title="Referencia de Pago")
     company_id: Optional[int] = Field(None, title="ID de la Empresa")
     company_name: Optional[str] = Field(None, title="Nombre de la Empresa")
+    account_category: Optional[AccountCategory] = Field(
+        None, title="Solo valido para Zoho"
+    )
 
 
 class Address(BaseModel):

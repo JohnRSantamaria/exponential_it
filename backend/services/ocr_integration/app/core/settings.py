@@ -39,6 +39,25 @@ class Settings(BaseSettings):
 
     # services url
     URL_ZOHO: str
+    URL_OPENAPI: str
+
+    # Timeout para HTTPX
+    HTTP_TIMEOUT_CONNECT: float = Field(
+        default=10.0,
+        description="Tiempo máximo (en segundos) para establecer la conexión HTTP",
+    )
+    HTTP_TIMEOUT_READ: float = Field(
+        default=60.0,
+        description="Tiempo máximo (en segundos) para recibir la respuesta completa del servidor",
+    )
+    HTTP_TIMEOUT_WRITE: float = Field(
+        default=10.0,
+        description="Tiempo máximo (en segundos) para enviar el cuerpo de la solicitud HTTP",
+    )
+    HTTP_TIMEOUT_POOL: float = Field(
+        default=5.0,
+        description="Tiempo máximo (en segundos) para obtener una conexión disponible del pool de conexiones",
+    )
 
     # Conversión de string a Path si se define por entorno
     @field_validator("ERROR_LOG_FILE", mode="before")

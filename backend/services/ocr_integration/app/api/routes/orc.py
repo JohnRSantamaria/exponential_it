@@ -1,5 +1,5 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
 
 from app.api.dependencies import required_service
 from app.core.logger import configure_logging
@@ -29,11 +29,15 @@ async def ocr_invoices(
     invoice = parser_invoice(cif=cif, ocr_data=ocr_data)
     supplier = parser_supplier(cif=cif, ocr_data=ocr_data)
 
-    response = await zoho_process(
+    file_content = await file.read()
+
+    await zoho_process(
         invoice=invoice,
         supplier=supplier,
+        file=file,
+        file_content=file_content,
     )
 
     logger.info("Proceso de Optical Character Recognition (OCR) finalizado.")
 
-    return response
+    return Response(status_code=201)

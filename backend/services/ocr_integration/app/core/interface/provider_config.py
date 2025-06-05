@@ -1,4 +1,4 @@
-class ProviderConfig:
+class   ProviderConfig:
     def __init__(
         self,
         server_url: str,

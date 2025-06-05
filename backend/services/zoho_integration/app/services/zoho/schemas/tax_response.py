@@ -1,10 +1,11 @@
-from typing import Optional
-from pydantic import BaseModel
+from typing import Dict, Optional
+
+import datetime
 
 from app.core.utils.base_models import BaseSanitizedModel
 
 
-class ZohoTaxResponse(BaseSanitizedModel):
+class ZohoTax(BaseSanitizedModel):
     tax_id: str
     tax_name: str
     tax_percentage: float
@@ -18,5 +19,5 @@ class ZohoTaxResponse(BaseSanitizedModel):
     is_value_added: bool
     is_default_tax: bool
     is_editable: bool
-    last_modified_time: str
+    last_modified_time: datetime.datetime
     status: str

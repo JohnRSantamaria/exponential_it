@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, File, UploadFile
+from fastapi import APIRouter, Body, Depends, File, UploadFile
 
-from app.api.dependencies import required_service
-from app.services.admin.schemas import UserDataSchema
-from app.services.zoho.client import zoho_get, zoho_get_all, zoho_post, zoho_post_file
+from app.services.zoho.schemas.create_bill import CreateZohoBillRequest
 from app.services.zoho.schemas.create_contact import CreateZohoContactRequest
+from app.services.zoho.client import zoho_get, zoho_get_all, zoho_post, zoho_post_file
 
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -32,11 +31,9 @@ async def get_all_bills():
 
 
 @router.post("/bill", name="Create Bill")
-async def create_bill(
-    bill,
-):
+async def create_bill(bill: CreateZohoBillRequest = Body(...)):
     return await zoho_post(
-        "/books/v3/bills", data=bill.model_dump(mode="json"), include_org=True
+        "/books/v3/bills", data=bill.clean_payload(), include_org=True
     )
 
 
@@ -54,7 +51,7 @@ async def create_contac(
     )
 
 
-@router.get("/chartofaccounts")
+@router.get("/chart-of-accounts")
 async def get_all_chartofaccounts():
     return await zoho_get_all("/books/v3/chartofaccounts", include_org=True)
 
