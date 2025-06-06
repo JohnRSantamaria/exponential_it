@@ -1,10 +1,10 @@
 services:
-    postgres_saas:
+    database:
         image: postgres:15
-        container_name: postgres_db_test
+        container_name: database
         restart: always
         env_file:
-            - .env
+            - .env.db
         volumes:
             - postgres_data:/var/lib/postgresql/data
         ports:
