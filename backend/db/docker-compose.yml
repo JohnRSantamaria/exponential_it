@@ -10,16 +10,6 @@ services:
         ports:
             - '5432:5432'
 
-    postgres_saas_test:
-        image: postgres:15
-        container_name: postgres_db_test_dos
-        restart: always
-        env_file:
-            - .env
-        volumes:
-            - postgres_data_test:/var/lib/postgresql/data
-        ports:
-            - '5433:5432'
 volumes:
     postgres_data:
     postgres_data_test:
