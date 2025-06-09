@@ -31,11 +31,11 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
 
-    # DataBase
-    DATABASE_URL: str
-
     # Crypto keys
     CRYPTO_KEY: str
+
+    # DataBase
+    DATABASE_URL: str
 
     # Zoho credentials
     ZOHO_CLIENT_ID: str
