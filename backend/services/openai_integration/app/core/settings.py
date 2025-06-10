@@ -20,7 +20,7 @@ env_file_to_use = env_local if debug_mode else BASE_DIR / ".env.prod"
 class Settings(BaseSettings):
     # Configuración general del servidor
     HOST: str = "0.0.0.0"
-    PORT: int = 8004
+    PORT: int = 8003
     DEBUG: bool = True
 
     # Logging
