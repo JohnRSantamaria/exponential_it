@@ -1,51 +1,71 @@
+# app/core/logger.py
+
 import logging
-from logging.handlers import RotatingFileHandler
+import warnings
+
 from pathlib import Path
+from colorlog import ColoredFormatter
+from logging.handlers import RotatingFileHandler
+
 from app.core.settings import settings
 
 
-log_dir = Path(__file__).resolve().parents[1] / "logs"
-log_dir.mkdir(parents=True, exist_ok=True)
+def configure_logging():
+    log_file = settings.ERROR_LOG_FILE
+    log_dir = Path(log_file).parent
+    log_dir.mkdir(parents=True, exist_ok=True)
 
+    # Determinar nivel de log
+    log_level_str = (
+        settings.LOG_LEVEL.upper()
+        if getattr(settings, "LOG_LEVEL", None)
+        else ("DEBUG" if settings.DEBUG else "WARNING")
+    )
+    log_level = getattr(logging, log_level_str, logging.WARNING)
 
-log_file = log_dir / "errors.log"
+    # File handler con rotación
+    file_handler = RotatingFileHandler(
+        filename=log_file,
+        maxBytes=5 * 1024 * 1024,  # 5MB
+        backupCount=3,
+        encoding="utf-8",
+    )
 
+    file_formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | %(pathname)s:%(lineno)d | %(message)s"
+    )
+    file_handler.setFormatter(file_formatter)
 
-log_level = (
-    logging.DEBUG
-    if settings.DEBUG
-    else getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO)
-)
+    # Console handler con colores
+    console_handler = logging.StreamHandler()
+    color_formatter = ColoredFormatter(
+        "%(log_color)s%(asctime)s | %(levelname)s | %(name)s | %(pathname)s:%(lineno)d | %(message)s",
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "bold_red",
+        },
+        style="%",
+    )
+    console_handler.setFormatter(color_formatter)
 
-file_handler = RotatingFileHandler(
-    filename=log_file,
-    maxBytes=5 * 1024 * 1024,  # 5 MB
-    backupCount=3,  # conserva los últimos 3 logs antiguos
-    encoding="utf-8",
-)
+    # Configuración base
+    logging.basicConfig(level=log_level, handlers=[file_handler, console_handler])
+    logger = logging.getLogger("app")
 
+    # Ajustar loggers de librerías externas si es necesario
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn").setLevel(logging.INFO)
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
 
-formatter = logging.Formatter(
-    "%(asctime)s | %(levelname)s | %(name)s | %(pathname)s:%(lineno)d | %(message)s"
-)
+    def custom_warning_handler(
+        message, category, filename, lineno, file=None, line=None
+    ):
+        if issubclass(category, RuntimeWarning):
+            logger.warning(f"RuntimeWarning: {message} ({filename}:{lineno})")
 
-file_handler.setFormatter(formatter)
+    warnings.showwarning = custom_warning_handler
 
-console_handler = logging.StreamHandler()
-console_handler.setFormatter(formatter)
-
-logging.basicConfig(level=log_level, handlers=[file_handler, console_handler])
-
-
-logger = logging.getLogger("app")
-
-
-"""
-from app.core.logger import logger
-
-logger.info("Aplicación iniciada")
-logger.error("Fallo inesperado", exc_info=True)
-logger.warning("Este es un aviso")
-logger.debug("Información de depuración detallada")
-
-"""
+    return logger
