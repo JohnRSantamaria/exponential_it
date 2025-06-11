@@ -5,7 +5,10 @@ import json
 from jwcrypto import jwt, jwk
 from fastapi import HTTPException, Header
 
+from app.core.logger import configure_logging
 from app.core.settings import settings
+
+logger = configure_logging()
 
 
 async def get_current_user(authorization: str = Header(...)):
@@ -13,11 +16,14 @@ async def get_current_user(authorization: str = Header(...)):
         raise HTTPException(status_code=401, detail="Token inválido")
 
     token = authorization.replace("Bearer ", "")
+    logger.info(f"{token}")
 
     try:
         key = jwk.JWK.from_password(settings.JWT_SECRET_KEY)
+        logger.info(f"key:{key}")
         verified_token = jwt.JWT(key=key, jwt=token)
         payload = json.loads(verified_token.claims)
+        logger.info(f"payload:{payload}")
 
     except Exception as e:
         raise HTTPException(
