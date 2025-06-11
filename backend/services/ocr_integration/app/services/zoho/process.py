@@ -23,12 +23,14 @@ async def zoho_process(
     """Orquesta el proceso en Zoho."""
     logger.info("Inicia proceso en Zoho")
     provider = get_provider(service=ServicesEnum.ZOHO)
+
     service = OpenAIService(
         config=ProviderConfig(
             server_url=settings.URL_OPENAPI,
-            api_prefix="/api/v1/openai",
+            api_prefix="/api",
         )
     )
+    logger.info("url open ai: " + settings.URL_OPENAPI)
     # Obtener el parnet VAT
     partner_vat = invoice.partner_vat
 

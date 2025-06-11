@@ -79,6 +79,22 @@ ps:
 # 🔍 logs 
 # =========================
 
+log-admin:
+	docker service logs -f $(STACK_NAME)_admin-django
+
+log-ocr:
+	docker service logs -f $(STACK_NAME)_ocr-integration
+
+log-zoho:
+	docker service logs -f $(STACK_NAME)_zoho-integration
+
+log-openai:
+	docker service logs -f $(STACK_NAME)_openai-integration
+
+log-nginx:
+	docker service logs -f $(STACK_NAME)_nginx
+	
+
 logs-admin:
 	docker service logs $(STACK_NAME)_admin-django
 

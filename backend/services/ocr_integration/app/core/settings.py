@@ -5,7 +5,6 @@ from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 from dotenv import dotenv_values
 
-
 # Base del proyecto: /backend/services/ocr_integration
 BASE_DIR = Path(__file__).resolve().parents[2]
 
