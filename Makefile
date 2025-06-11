@@ -58,8 +58,6 @@ push: push-admin push-ocr push-zoho push-openai push-nginx
 deploy:
 	docker stack deploy -c $(COMPOSE_FILE) $(STACK_NAME)
 
-deploy-prod:
-	docker stack deploy -c docker-compose.prod.yml $(STACK_NAME)
 
 # Despliegue con espera y chequeo de estado
 deploy-check:

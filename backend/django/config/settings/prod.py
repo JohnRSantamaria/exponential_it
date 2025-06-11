@@ -6,18 +6,12 @@ from .base import *
 
 DEBUG = False
 
-ENVIRONMENT: str = "development"
+ENVIRONMENT: str = "production"
 LOG_LEVEL: str = "ERROR"
 
 
-HOST = config("HOST", default="0.0.0.0", cast=str)
-# ALLOWED_HOSTS = [f"{HOST}"]
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "0.0.0.0",
-    "admin-django",
-]
+HOST = config("HOST", default="15.188.6.72", cast=str)
+ALLOWED_HOSTS = [f"{HOST}"]
 
 MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
 
@@ -27,7 +21,7 @@ CORS_ALLOWED_ORIGINS = [f"http://{HOST}"]
 DATABASES = {"default": dj_database_url.parse(config("DATABASE_PROD"))}
 
 STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "config", "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Exipiraicon del token
 OAUTH2_PROVIDER = {
