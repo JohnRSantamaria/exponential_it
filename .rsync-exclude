@@ -7,17 +7,12 @@ __pycache__/
 *.pickle
 *.pickle.db
 
-.env
 .venv/
 venv/
 env/
 ENV/
 env_*/
-env-zoho/
-env-gpt/
 env-*/
-
-*.env
 
 .vscode/
 .idea/
