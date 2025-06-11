@@ -1,8 +1,11 @@
 from typing import List, Union
 from fastapi import Depends, HTTPException
 
+from app.core.logger import configure_logging
 from app.core.security import get_current_user
 from app.services.admin.schemas import UserDataSchema
+
+logger = configure_logging()
 
 
 def required_service(required_services: List[Union[int, str]]):
@@ -22,6 +25,7 @@ def required_service(required_services: List[Union[int, str]]):
         missing = list(required_set - active_set)
 
         if missing:
+            logger.warning(f"No cuenta con acceso al servicio requerido. : {missing}")
             raise HTTPException(
                 status_code=403,
                 detail="No cuenta con acceso al servicio requerido.",
