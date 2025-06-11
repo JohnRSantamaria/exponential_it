@@ -19,7 +19,7 @@ from app.core.exceptions.exceptions import (
     validation_exception_handler,
 )
 
-app = FastAPI()
+app = FastAPI(title="ODOO API", version="1.0", root_path="/odoo")
 
 # Logger
 logger = configure_logging()
@@ -28,7 +28,7 @@ logger = configure_logging()
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Rutas
-app.include_router(entry.router, prefix="/api/v1/odoo", tags=["odoo"])
+app.include_router(entry.router, prefix="/api", tags=["api"])
 
 # Handles global exceptions
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)

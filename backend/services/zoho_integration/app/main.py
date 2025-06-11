@@ -19,7 +19,7 @@ from app.core.exceptions.exceptions import (
     validation_exception_handler,
 )
 
-app = FastAPI()
+app = FastAPI(title="ZOHO API", version="1.0", root_path="/zoho")
 
 # Logger
 logger = configure_logging()
@@ -28,8 +28,8 @@ logger = configure_logging()
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Rutas
-app.include_router(auth.router, prefix="/api/v1/zoho")
-app.include_router(books.router, prefix="/api/v1/zoho")
+app.include_router(auth.router, prefix="/api")
+app.include_router(books.router, prefix="/api")
 
 # Handles global exceptions
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)

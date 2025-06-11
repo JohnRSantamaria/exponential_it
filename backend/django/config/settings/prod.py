@@ -12,8 +12,12 @@ LOG_LEVEL: str = "ERROR"
 
 HOST = config("HOST", default="0.0.0.0", cast=str)
 # ALLOWED_HOSTS = [f"{HOST}"]
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
-
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "0.0.0.0",
+    "admin-django",
+]
 
 MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
 
@@ -23,7 +27,7 @@ CORS_ALLOWED_ORIGINS = [f"http://{HOST}"]
 DATABASES = {"default": dj_database_url.parse(config("DATABASE_PROD"))}
 
 STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_ROOT = os.path.join(BASE_DIR, "config", "staticfiles")
 
 # Exipiraicon del token
 OAUTH2_PROVIDER = {

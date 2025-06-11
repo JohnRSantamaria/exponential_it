@@ -16,7 +16,12 @@ logger = configure_logging()
 router = APIRouter()
 
 
-@router.post("/")
+@router.get("/")
+def read_root():
+    return {"message": "OK"}
+
+
+@router.post("/invoices")
 async def ocr_invoices(
     payload: Annotated[str, Form(...)],
     file: Annotated[UploadFile, File(...)],
