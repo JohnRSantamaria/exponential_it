@@ -1,0 +1,59 @@
+services:
+  admin_django:
+    image: johnsantamaria/admin_django:latest
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./envs/admin.env
+    deploy:
+      replicas: 1
+    networks:
+      - backend
+
+  ocr_integration:
+    image: johnsantamaria/ocr_integration:latest
+    expose:
+      - "8001"
+    env_file:
+      - ./envs/ocr.env
+    deploy:
+      replicas: 1
+    networks:
+      - backend
+
+  zoho_integration:
+    image: johnsantamaria/zoho_integration:latest
+    expose:
+      - "8002"
+    env_file:
+      - ./envs/zoho.env
+    deploy:
+      replicas: 1
+    networks:
+      - backend
+
+  openai_integration:
+    image: johnsantamaria/openai_integration:latest
+    expose:
+      - "8003"
+    env_file:
+      - ./envs/openai.env
+    deploy:
+      replicas: 1
+    networks:
+      - backend
+
+  nginx:
+    image: johnsantamaria/nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    deploy:
+      replicas: 1
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: overlay

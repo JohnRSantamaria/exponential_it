@@ -192,6 +192,40 @@ shell-openai:
 shell-nginx:
 	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") sh
 
+# =========================
+# 🚀 Producción en AWS Lightsail
+# =========================
+
+# Despliega el stack en la instancia Lightsail
+prod-deploy:
+	docker stack deploy -c docker-stack.yml $(STACK_NAME)
+
+# Elimina el stack de producción
+prod-rm:
+	docker stack rm $(STACK_NAME)
+
+# Verifica el estado del stack de producción
+prod-status:
+	docker stack ls
+	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
+	docker ps -a
+
+# Muestra logs de Nginx en producción
+prod-logs-nginx:
+	docker service logs -f $(STACK_NAME)_nginx
+
+# Recarga Nginx en producción
+prod-reload-nginx:
+	docker service update --force $(STACK_NAME)_nginx
+
+# Accede al contenedor de Nginx en producción
+prod-shell-nginx:
+	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") sh
+
+# Atajo para ver todo (stack, servicios, contenedores)
+prod-info: prod-status
+
+
 # ===========================================================
 #
 # 🛠️ Cómo usar el Makefile
