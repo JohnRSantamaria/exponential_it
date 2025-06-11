@@ -6,6 +6,7 @@ __pycache__/
 *.sqlite3
 *.pickle
 *.pickle.db
+.git/
 
 .venv/
 venv/
@@ -104,6 +105,7 @@ yarn-error.log*
 __pypackages__/
 celerybeat-schedule
 celerybeat.pid
+
 
 
 */backend/django/docs/*
