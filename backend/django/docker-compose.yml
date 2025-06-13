@@ -1,33 +1,19 @@
-
 services:
-    database:
-        image: postgres:15
-        container_name: postgres_db
-        restart: always
-        env_file:
-            - .env.db
-        volumes:
-            - postgres_data:/var/lib/postgresql/data
-        ports:
-            - '5432:5432'
-
-    admin_django:
-        container_name: admin_django
+    admin-django:
+        container_name: admin-django
         build:
             context: .
             dockerfile: Dockerfile
-        command: >
-            sh -c "python manage.py migrate &&
-                    python manage.py collectstatic --noinput &&
-                    gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+        command: sh /app/scripts/entrypoint.sh
         env_file:
             - .env
         volumes:
-            - ./:/app
+            - .:/app
         ports:
             - '8000:8000'
-        depends_on:
-            - database
+        networks:
+            - app_net
 
-volumes:
-    postgres_data:
+networks:
+    app_net:
+        external: true

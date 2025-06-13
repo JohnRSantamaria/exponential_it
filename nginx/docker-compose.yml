@@ -1,0 +1,14 @@
+services:
+    nginx:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        ports:
+            - '80:80'
+        volumes:
+            - ../backend/django/config/staticfiles:/static:ro
+        networks:
+            - app_net
+networks:
+    app_net:
+        external: true

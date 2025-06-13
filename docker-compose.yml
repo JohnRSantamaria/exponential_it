@@ -1,63 +1,18 @@
 services:
     admin-django:
-        image: admin_django:latest
+        container_name: admin-django
+        build:
+            context: ./backend/django
+            dockerfile: Dockerfile
         command: sh /app/scripts/entrypoint.sh
         env_file:
             - ./backend/django/.env
         volumes:
             - ./backend/django:/app
-        deploy:
-            replicas: 1
-        networks:
-            - app_net
-
-    ocr-integration:
-        image: ocr_integration:latest
-        command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --access-log --use-colors
-        env_file:
-            - ./backend/services/ocr_integration/.env.prod
-        deploy:
-            replicas: 1
-        networks:
-            - app_net
-
-    zoho-integration:
-        image: zoho_integration:latest
-        command: uvicorn app.main:app --host 0.0.0.0 --port 8002 --access-log --use-colors
-        env_file:
-            - ./backend/services/zoho_integration/.env.prod
-        deploy:
-            replicas: 1
-        networks:
-            - app_net
-
-    openai-integration:
-        image: openai_integration:latest
-        command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --access-log --use-colors
-        env_file:
-            - ./backend/services/openai_integration/.env.prod
-        deploy:
-            replicas: 1
-        networks:
-            - app_net
-
-    nginx:
-        image: nginx:latest
         ports:
-            - '80:80'
-        volumes:
-            - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-            - ./backend/django/config/staticfiles:/static:ro
-        depends_on:
-            - admin-django
-            - ocr-integration
-            - zoho-integration
-            - openai-integration
-        deploy:
-            replicas: 1
+            - '8000:8000'
         networks:
             - app_net
-
 networks:
     app_net:
-        driver: overlay
+        external: true

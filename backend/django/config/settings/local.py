@@ -20,7 +20,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 DATABASES = {"default": dj_database_url.parse(config("DATABASE_LOCAL"))}
 
 
-STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+STATIC_URL = "/static/"
 
 # Exipiraicon del token
 OAUTH2_PROVIDER = {
