@@ -1,60 +1,16 @@
 services:
   admin_django:
-    image: johnsantamaria/admin_django:latest
-    ports:
-      - "8000:8000"
+    image: johnsantamaria/admin_django:v1.0.0-beta
     env_file:
       - ./backend/django/.env
-    deploy:
-      replicas: 1
-    networks:
-      - backend
-
-  ocr_integration:
-    image: johnsantamaria/ocr_integration:latest
-    expose:
-      - "8001"
-    env_file:
-      - ./backend/services/ocr_integration/.env.prod
-    deploy:
-      replicas: 1
-    networks:
-      - backend
-
-  zoho_integration:
-    image: johnsantamaria/zoho_integration:latest
-    expose:
-      - "8002"
-    env_file:
-      - ./backend/services/zoho_integration/.env.prod
-    deploy:
-      replicas: 1
-    networks:
-      - backend
-
-  openai_integration:
-    image: johnsantamaria/openai_integration:latest
-    expose:
-      - "8003"
-    env_file:
-      - ./backend/services/openai_integration/.env.prod
-    deploy:
-      replicas: 1
-    networks:
-      - backend
-
-  nginx:
-    image: johnsantamaria/nginx:latest
-    ports:
-      - "80:80"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./backend/django/config/staticfiles:/static:ro
+      - ./backend/django:/app
+    networks:
+      - app_net
     deploy:
       replicas: 1
-    networks:
-      - backend
-
+      restart_policy:
+        condition: on-failure
 networks:
-  backend:
-    driver: overlay
+  app_net:
+    external: true

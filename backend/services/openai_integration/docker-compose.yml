@@ -1,6 +1,6 @@
 services:
-    openai-integration:
-        container_name: openai-integration
+    openai_integration:
+        container_name: openai_integration
         build:
             context: .
             dockerfile: Dockerfile

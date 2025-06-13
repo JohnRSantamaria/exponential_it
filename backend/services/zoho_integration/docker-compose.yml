@@ -1,6 +1,6 @@
 services:
-    zoho-integration:
-        container_name: zoho-integration
+    zoho_integration:
+        container_name: zoho_integration
         build:
             context: .
             dockerfile: Dockerfile

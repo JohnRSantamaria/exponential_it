@@ -1,6 +1,6 @@
 services:
-    admin-django:
-        container_name: admin-django
+    admin_django:
+        container_name: admin_django
         build:
             context: .
             dockerfile: Dockerfile

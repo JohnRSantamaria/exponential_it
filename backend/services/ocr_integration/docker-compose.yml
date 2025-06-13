@@ -1,6 +1,6 @@
 services:
-    ocr-integration:
-        container_name: ocr-integration
+    ocr_integration:
+        container_name: ocr_integration
         build:
             context: .
             dockerfile: Dockerfile
