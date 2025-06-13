@@ -4,53 +4,66 @@
 REGISTRY = johnsantamaria
 STACK_NAME = exponentialit_stack
 COMPOSE_FILE = docker-compose.yml
-
+VERSION ?= 1.0.0
 # =========================
 # 🛠️ Build de imágenes
 # =========================
 build-admin:
-	docker build -t admin_django ./backend/django
+	docker build -t admin_django:$(VERSION) ./backend/django
 
 build-ocr:
-	docker build -t ocr_integration ./backend/services/ocr_integration
+	docker build -t ocr_integration:$(VERSION) ./backend/services/ocr_integration
 
 build-zoho:
-	docker build -t zoho_integration ./backend/services/zoho_integration
+	docker build -t zoho_integration:$(VERSION) ./backend/services/zoho_integration
 
 build-openai:
-	docker build -t openai_integration ./backend/services/openai_integration
+	docker build -t openai_integration:$(VERSION) ./backend/services/openai_integration
 
 build-nginx:
-	docker build -t nginx -f ./nginx/Dockerfile ./nginx
+	docker build -t nginx:$(VERSION) ./nginx
 
 
 
-build: build-admin build-ocr build-zoho build-openai build-nginx
+
+build:
+	@echo "🛠️  Construyendo imágenes con la versión $(VERSION)..."
+	make build-admin VERSION=$(VERSION)
+	make build-ocr VERSION=$(VERSION)
+	make build-zoho VERSION=$(VERSION)
+	make build-openai VERSION=$(VERSION)
+	make build-nginx VERSION=$(VERSION)
 
 # =========================
 # 🚀 Push a Docker Hub
 # =========================
 push-admin:
-	docker tag admin_django $(REGISTRY)/admin_django:latest
-	docker push $(REGISTRY)/admin_django:latest
+	docker tag admin_django:$(VERSION) $(REGISTRY)/admin_django:$(VERSION)
+	docker push $(REGISTRY)/admin_django:$(VERSION)
 
 push-ocr:
-	docker tag ocr_integration $(REGISTRY)/ocr_integration:latest
-	docker push $(REGISTRY)/ocr_integration:latest
+	docker tag ocr_integration:$(VERSION) $(REGISTRY)/ocr_integration:$(VERSION)
+	docker push $(REGISTRY)/ocr_integration:$(VERSION)
 
 push-zoho:
-	docker tag zoho_integration $(REGISTRY)/zoho_integration:latest
-	docker push $(REGISTRY)/zoho_integration:latest
+	docker tag zoho_integration:$(VERSION) $(REGISTRY)/zoho_integration:$(VERSION)
+	docker push $(REGISTRY)/zoho_integration:$(VERSION)
 
 push-openai:
-	docker tag openai_integration $(REGISTRY)/openai_integration:latest
-	docker push $(REGISTRY)/openai_integration:latest
+	docker tag openai_integration:$(VERSION) $(REGISTRY)/openai_integration:$(VERSION)
+	docker push $(REGISTRY)/openai_integration:$(VERSION)
 
 push-nginx:
-	docker tag nginx $(REGISTRY)/nginx:latest
-	docker push $(REGISTRY)/nginx:latest
+	docker tag nginx:$(VERSION) $(REGISTRY)/nginx:$(VERSION)
+	docker push $(REGISTRY)/nginx:$(VERSION)
 
-push: push-admin push-ocr push-zoho push-openai push-nginx
+push:
+	@echo "🚀 Subiendo imágenes con la versión $(VERSION)..."
+	make push-admin VERSION=$(VERSION)
+	make push-ocr VERSION=$(VERSION)
+	make push-zoho VERSION=$(VERSION)
+	make push-openai VERSION=$(VERSION)
+	make push-nginx VERSION=$(VERSION)
 
 # =========================
 # 🐳 Despliegue en Swarm
