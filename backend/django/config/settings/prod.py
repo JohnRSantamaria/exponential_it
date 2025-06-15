@@ -1,6 +1,6 @@
 import os
 import dj_database_url
-
+from decouple import config, Csv
 from .base import *
 
 
@@ -10,13 +10,14 @@ ENVIRONMENT: str = "production"
 LOG_LEVEL: str = "ERROR"
 
 
-HOST = config("HOST", default="15.188.6.72", cast=str)
-ALLOWED_HOSTS = [f"{HOST}"]
+HOST = config("HOST", default="15.188.6.72,15.236.59.110", cast=Csv())
+
+ALLOWED_HOSTS = HOST
 
 MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
 
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [f"http://{HOST}"]
+CORS_ALLOWED_ORIGINS = [f"http://{h}" for h in HOST]
 
 DATABASES = {"default": dj_database_url.parse(config("DATABASE_PROD"))}
 
