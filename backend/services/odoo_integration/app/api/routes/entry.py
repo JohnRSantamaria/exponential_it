@@ -1,9 +1,7 @@
-from typing import List
-from fastapi import APIRouter, Body
+from fastapi import APIRouter
 
-from app.core.logger import configure_logging
 from app.services.odoo.process import odoo_process
-from app.services.zoho.schemas.chart_of_accounts_response import ZohoAccount
+from exponential_core.logger.configure import configure_logging
 
 # Logger
 logger = configure_logging()
@@ -14,4 +12,6 @@ router = APIRouter()
 @router.post("/")
 async def entry():
     """ """
+    logger.info("Inicia proceso en Odoo.")
+
     return odoo_process()

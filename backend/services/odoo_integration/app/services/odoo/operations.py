@@ -32,7 +32,7 @@ def get_or_create_product(cliente, name, default_code=None, price=0.0):
             "name": name,
             "list_price": price,
             "default_code": default_code or "",
-            "type": "consu",  # puede ser 'service', 'consu', 'product'
+            "type": "consu",  # puede ser 'service', 'consu',
         },
     )
 
