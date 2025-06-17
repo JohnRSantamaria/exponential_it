@@ -1,13 +1,9 @@
-# =========================
-# 🔧 Variables
-# =========================
+
 REGISTRY = johnsantamaria
 STACK_NAME = exponentialit_stack
 COMPOSE_FILE = docker-compose.yml
 VERSION ?= 1.0.0
-# =========================
-# 🛠️ Build de imágenes
-# =========================
+
 build-admin:
 	docker build -t admin_django:$(VERSION) ./backend/django
 
@@ -23,9 +19,6 @@ build-openai:
 build-nginx:
 	docker build -t nginx:$(VERSION) ./nginx
 
-
-
-
 build:
 	@echo "🛠️  Construyendo imágenes con la versión $(VERSION)..."
 	make build-admin VERSION=$(VERSION)
@@ -34,9 +27,6 @@ build:
 	make build-openai VERSION=$(VERSION)
 	make build-nginx VERSION=$(VERSION)
 
-# =========================
-# 🚀 Push a Docker Hub
-# =========================
 push-admin:
 	docker tag admin_django:$(VERSION) $(REGISTRY)/admin_django:$(VERSION)
 	docker push $(REGISTRY)/admin_django:$(VERSION)
@@ -65,46 +55,19 @@ push:
 	make push-openai VERSION=$(VERSION)
 	make push-nginx VERSION=$(VERSION)
 
-# =========================
-# 🐳 Despliegue en Swarm
-# =========================
 deploy:
 	docker stack deploy -c $(COMPOSE_FILE) $(STACK_NAME)
 
-
-# Despliegue con espera y chequeo de estado
 deploy-check:
-	@echo "🚀 Desplegando el stack '$(STACK_NAME)' con espera (modo bloqueante)..."
+	@echo "🚀 Desplegando el stack '$(STACK_NAME)' con espera..."
 	docker stack deploy --detach=false -c $(COMPOSE_FILE) $(STACK_NAME)
-	@echo "✅ Estado de los servicios tras el despliegue:"
 	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
-
 
 rm:
 	docker stack rm $(STACK_NAME)
 
 ps:
 	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
-
-# =========================
-# 🔍 logs 
-# =========================
-
-log-admin:
-	docker service logs -f $(STACK_NAME)_admin-django
-
-log-ocr:
-	docker service logs -f $(STACK_NAME)_ocr-integration
-
-log-zoho:
-	docker service logs -f $(STACK_NAME)_zoho-integration
-
-log-openai:
-	docker service logs -f $(STACK_NAME)_openai-integration
-
-log-nginx:
-	docker service logs -f $(STACK_NAME)_nginx
-	
 
 logs-admin:
 	docker service logs $(STACK_NAME)_admin-django
@@ -129,44 +92,24 @@ status:
 	docker ps -a
 	docker network ls
 
-
-# =========================
-# 🔍 Validación de .env
-# =========================
 check-env:
-	@echo "🔍 Validando archivo .env.prod para ocr_integration..."
 	@if [ ! -f ./backend/services/ocr_integration/.env.prod ]; then \
-		echo "❌ ERROR: No se encontró ./backend/services/ocr_integration/.env.prod"; exit 1; \
+		echo "❌ ERROR: No se encontró .env.prod"; exit 1; \
 	fi
 	@if ! grep -q "^DATABASE_URL=" ./backend/services/ocr_integration/.env.prod; then \
-		echo "❌ ERROR: Falta la variable DATABASE_URL en .env.prod"; exit 1; \
+		echo "❌ ERROR: Falta DATABASE_URL"; exit 1; \
 	fi
-	@if grep -E '^DATABASE_URL="?postgresql:\/\/.+"?' ./backend/services/ocr_integration/.env.prod | grep -q '=""\|=""\|="postgresql://"' ; then \
-		echo "❌ ERROR: DATABASE_URL está vacía o mal formada"; exit 1; \
-	fi
-	@echo "✅ .env.prod válido"
 
-# =========================
-# 🧹 Limpieza
-# =========================
 clean:
 	docker ps -aq | xargs docker rm -f || true
 
 prune:
 	docker system prune -af --volumes
 
-# =========================
-# 📦 Atajos agrupados
-# =========================
 up: build deploy
+
 down: rm clean
 
-.PHONY: build push deploy rm ps logs clean prune status up down
-
-
-# =========================
-# 🔄 Reload de servicios Swarm
-# =========================
 reload-admin:
 	docker service update --force $(STACK_NAME)_admin-django
 
@@ -184,10 +127,6 @@ reload-nginx:
 
 reload: reload-admin reload-ocr reload-zoho reload-openai reload-nginx
 
-
-# =========================
-# 💻 Acceso a contenedores en ejecución
-# =========================
 shell-admin:
 	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_admin-django" --format "{{.ID}}") sh
 
@@ -203,62 +142,35 @@ shell-openai:
 shell-nginx:
 	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") sh
 
-# =========================
-# 🚀 Producción en AWS Lightsail
-# =========================
-
-# Despliega el stack en la instancia Lightsail
 prod-deploy:
 	docker stack deploy -c docker-stack.yml $(STACK_NAME)
 
-# Elimina el stack de producción
 prod-rm:
 	docker stack rm $(STACK_NAME)
 
-# Verifica el estado del stack de producción
 prod-status:
 	docker stack ls
 	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
 	docker ps -a
 
-# Muestra logs de Nginx en producción
 prod-logs-nginx:
 	docker service logs -f $(STACK_NAME)_nginx
 
-# Recarga Nginx en producción
 prod-reload-nginx:
 	docker service update --force $(STACK_NAME)_nginx
 
-# Accede al contenedor de Nginx en producción
 prod-shell-nginx:
 	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") sh
 
-# Atajo para ver todo (stack, servicios, contenedores)
 prod-info: prod-status
 
-
-# ===========================================================
-#
-# 🛠️ Cómo usar el Makefile
-#
-# make build           # Construye todas las imágenes (incluye nginx)
-# make push            # Sube todas las imágenes al registry (incluye nginx)
-# make deploy          # Despliega el stack en Docker Swarm
-# make deploy-check    # Despliega con espera y verifica estado
-# make rm              # Elimina el stack del Swarm
-# make up              # Ejecuta build + deploy
-# make down            # Elimina el stack y contenedores residuales
-# make logs            # Muestra logs de todos los servicios
-# make status          # Estado del stack, servicios, contenedores y redes
-# make reload          # Fuerza la recarga (rolling update) de todos los servicios
-# make reload-nginx    # Recarga solo el servicio nginx
-# make check-env       # Verifica archivo .env.prod del OCR
-# make prune           # Limpia imágenes, volúmenes y redes no utilizadas
-#
-# 👀 Individual:
-# make build-nginx     # Construye solo la imagen de nginx
-# make push-nginx      # Sube solo la imagen de nginx
-# make reload-ocr      # Recarga solo el servicio OCR
-#
-# 🔁 Repite para admin_django, zoho, openai según sea necesario.
-# ===========================================================
+.PHONY: \
+  build build-admin build-ocr build-zoho build-openai build-nginx \
+  push push-admin push-ocr push-zoho push-openai push-nginx \
+  deploy deploy-check rm ps \
+  logs logs-admin logs-ocr logs-zoho logs-openai logs-nginx \
+  status check-env clean prune \
+  up down \
+  reload reload-admin reload-ocr reload-zoho reload-openai reload-nginx \
+  shell-admin shell-ocr shell-zoho shell-openai shell-nginx \
+  prod-deploy prod-rm prod-status prod-logs-nginx prod-reload-nginx prod-shell-nginx prod-info
