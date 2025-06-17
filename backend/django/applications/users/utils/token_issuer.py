@@ -5,6 +5,8 @@ from oauthlib.common import generate_token
 from oauth2_provider.models import AccessToken, RefreshToken, Application
 
 from django.conf import settings
+
+from accounts.models import Account
 from .serialize_jwt import sign_jwt
 from services.models import AccountService
 
@@ -54,12 +56,25 @@ def create_tokens_for_user(user, account_id: int, app=None):
         ).values_list("service__id", flat=True)
     )
 
+    active_services = list(
+        AccountService.objects.filter(
+            account__id=account_id,
+            account__user=user,
+            is_active=True,
+        ).values_list("service__id", flat=True)
+    )
+
+    account_info = (
+        Account.objects.filter(id=account_id, user=user).values("id", "name").first()
+    )
+
     # JWT
     app_token = sign_jwt(
         {
             "user_id": str(user.id),
             "user_email": user.email,
             "services": active_services,
+            "account_info": account_info,
             "exp": int((timezone.now() + ACCESS_TOKEN_EXPIRATION).timestamp()),
         }
     )

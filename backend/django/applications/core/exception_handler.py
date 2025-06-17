@@ -1,6 +1,8 @@
 # applications\core\exception_handler.py
 import logging
+import traceback
 
+from django.conf import settings
 from django.http import JsonResponse
 from rest_framework.views import exception_handler as drf_exception_handler
 from rest_framework.response import Response
@@ -64,6 +66,18 @@ def custom_exception_handler(exc, context):
         f"Excepción no controlada: {exc.__class__.__name__} | {str(exc)} | Contexto: {context.get('view')}",
         exc_info=True,
     )
+    if settings.DEBUG:
+        formatted_traceback = traceback.format_exc().splitlines()[-1]
+        return Response(
+            format_error_response(
+                message=str(exc),
+                error_type=exc.__class__.__name__,
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+            | {"traceback": formatted_traceback},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
     return Response(
         format_error_response(
             message="Se produjo un error inesperado",

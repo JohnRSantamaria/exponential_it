@@ -32,6 +32,8 @@ async def ocr_invoices(
     """
     logger.info("Proceso de Optical Character Recognition (OCR) iniciado.")
     cif = get_credential_by_key(user_id=user_data.user_id, key="CIF")
+    apy_key_taggun = get_credential_by_key(user_id=user_data.user_id, key="taggun")
+    
 
     ocr_data = valid_json(payload)
     invoice = parser_invoice(cif=cif, ocr_data=ocr_data)

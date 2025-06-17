@@ -9,6 +9,7 @@ class Account(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accounts")
     name = models.CharField(max_length=100)
     created = models.DateTimeField(default=timezone.now)
+    total_invoices_scanned = models.PositiveIntegerField(default=0)
 
     def clean(self):
 

@@ -9,12 +9,6 @@ services:
             - postgres_data:/var/lib/postgresql/data
         ports:
             - '5432:5432'
-        networks:
-            - app_net
 
 volumes:
     postgres_data:
-
-networks:
-    app_net:
-        external: true

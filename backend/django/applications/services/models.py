@@ -56,5 +56,8 @@ class ServiceCredential(models.Model):
     def value(self, val: str):
         self._value = encrypt_value(val) if self.is_secret else val.encode()
 
+    class Meta:
+        unique_together = ("account_service", "key")
+
     def __str__(self):
         return f"{self.account_service} : {self.key}"

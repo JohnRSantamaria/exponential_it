@@ -16,6 +16,7 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
     hashed_password = Column(String, nullable=False)
     date_joined = Column(DateTime, default=datetime.utcnow)
+    total_invoices_scanned = Column(Integer, default=0)
 
     accounts = relationship("Account", back_populates="user", cascade="all, delete")
 

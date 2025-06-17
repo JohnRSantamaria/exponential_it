@@ -5,7 +5,13 @@ from .models import User
 
 class UserAdmin(BaseUserAdmin):
     ordering = ["email"]
-    list_display = ["email", "name", "is_active", "date_joined"]
+    list_display = [
+        "email",
+        "name",
+        "is_active",
+        "date_joined",
+        "total_invoices_scanned",
+    ]
     search_fields = ["email", "name"]
     fieldsets = (
         (None, {"fields": ("email", "password")}),
@@ -23,6 +29,7 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
         ("Fechas", {"fields": ("date_joined", "last_login")}),
+        ("Facturas escaneadas", {"fields": ("total_invoices_scanned",)}),
     )
     add_fieldsets = (
         (
@@ -33,7 +40,7 @@ class UserAdmin(BaseUserAdmin):
             },
         ),
     )
-    readonly_fields = ["date_joined", "last_login"]
+    readonly_fields = ["date_joined", "last_login", "total_invoices_scanned"]
 
 
 admin.site.register(User, UserAdmin)
