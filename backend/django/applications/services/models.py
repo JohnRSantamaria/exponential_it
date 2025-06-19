@@ -33,10 +33,17 @@ class AccountService(models.Model):
 
 class ServiceCredential(models.Model):
 
+    choices = {
+        "CIF": "CIF",
+        "TAGGUN": "Taggun api key ",
+        "PROCESSOR": "Procesador de facturacion",
+        "STORAGE": "Proveedor de almacenamiento",
+    }
+
     account_service = models.ForeignKey(
         AccountService, on_delete=models.CASCADE, related_name="credentials"
     )
-    key = models.CharField(max_length=100)
+    key = models.CharField(max_length=100, choices=choices)
     _value = models.BinaryField(db_column="value")
     is_secret = models.BooleanField(default=False)
     created = models.DateTimeField(auto_now_add=True)

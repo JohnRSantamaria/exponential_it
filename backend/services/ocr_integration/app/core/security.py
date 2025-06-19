@@ -7,6 +7,7 @@ from fastapi import HTTPException, Header
 
 from app.core.logger import configure_logging
 from app.core.settings import settings
+from app.services.admin.schemas import UserDataSchema
 
 logger = configure_logging()
 
@@ -35,4 +36,6 @@ async def get_current_user(authorization: str = Header(...)):
         "email": payload.get("user_email"),
         "active_subscriptions": payload.get("services", []),
         "exp": int(payload.get("exp")),
+        "account_id": payload.get("account_info", {}).get("id"),
+        "account_name": payload.get("account_info", {}).get("name"),
     }

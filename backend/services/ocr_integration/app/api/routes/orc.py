@@ -1,65 +1,47 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, File, Form, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 
 from app.api.dependencies import required_service
-from app.core.enums import UploadersEnum
+
 from app.core.logger import configure_logging
-from app.services.ocr.utils.supplier_tax_id import extract_supplier_tax_id
-from app.services.ocr.validator import valid_json
-from app.services.upload.process import save_file
-from app.services.zoho.process import zoho_process
+from app.core.settings import settings
+from app.core.interface.provider_config import ProviderConfig
+
+from app.services.admin.client import AdminService
 from app.services.admin.schemas import UserDataSchema
-from app.services.admin.credentials import get_credential_by_key
-from app.services.ocr.parser_ocr import parser_invoice, parser_supplier
+from app.services.ocr.process import optical_character_recognition
+
 
 logger = configure_logging()
 router = APIRouter()
 
 
-@router.get("/")
-def read_root():
-    return {"message": "OK"}
-
-
 @router.post("/invoices")
 async def ocr_invoices(
-    payload: Annotated[str, Form(...)],
+    request: Request,
     file: Annotated[UploadFile, File(...)],
-    user_data: UserDataSchema = Depends(required_service([1])),
+    user_data: UserDataSchema = Depends(required_service([settings.SERVICE_ID])),
 ):
     """
     Esta ruta procesa documentos OCR solo si el usuario está autenticado correctamente con un JWT emitido por Django.
     """
+
     logger.info("Proceso de Optical Character Recognition (OCR) iniciado.")
-    cif = get_credential_by_key(user_id=user_data.user_id, key="CIF")
-    apy_key_taggun = get_credential_by_key(user_id=user_data.user_id, key="taggun")
-    
 
-    ocr_data = valid_json(payload)
-    invoice = parser_invoice(cif=cif, ocr_data=ocr_data)
-    supplier = parser_supplier(cif=cif, ocr_data=ocr_data)
-    partner_vat = extract_supplier_tax_id(ocr_data=ocr_data, cif=cif.value)
+    raw_auth = request.headers.get("Authorization")
 
-    # Fix partner VAT
-    invoice.partner_vat = partner_vat
-    supplier.vat = partner_vat
-
-    file_content = await file.read()
-
-    await zoho_process(
-        invoice=invoice,
-        supplier=supplier,
-        file=file,
-        file_content=file_content,
+    admin_service = AdminService(
+        config=ProviderConfig(
+            server_url=settings.URL_ADMIN,
+            token=raw_auth,
+        )
     )
 
-    await save_file(
-        invoice=invoice,
-        file_content=file_content,
+    await optical_character_recognition(
         file=file,
-        uploader_name=UploadersEnum.DROPBOX,
+        user_data=user_data,
+        admin_service=admin_service,
     )
 
-    logger.info("Proceso de Optical Character Recognition (OCR) finalizado.")
-
+    logger.info("Proceso de Optical Character Recognition (OCR) finalizado con éxito.")
     return Response(status_code=201)

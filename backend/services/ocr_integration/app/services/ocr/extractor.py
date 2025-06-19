@@ -1,8 +1,13 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
+from app.core.exceptions.types import CustomAppException
 from app.services.ocr.enums import InvoiceState
-from app.services.admin.schemas import CredentialOut
+from app.services.admin.schemas import (
+    CredentialOut,
+    ExtractedCredentials,
+    ServiceCredentialsResponse,
+)
 from app.services.ocr.schemas import Invoice, InvoiceLine, Supplier
 
 
@@ -37,7 +42,7 @@ class InvoiceExtractor:
 
         invoice_origin = self.ocr_data.get("entities", {}).get("receiptNumber", {}).get(
             "data"
-        ) or self.ocr_data.get("entities", {}).get("invoiceNumber", {}).geft("data", "")
+        ) or self.ocr_data.get("entities", {}).get("invoiceNumber", {}).get("data", "")
 
         amount_total = float(self.ocr_data.get("totalAmount", {}).get("data", 0.0))
         amount_tax = float(self.ocr_data.get("taxAmount", {}).get("data", 0.0))
@@ -54,7 +59,7 @@ class InvoiceExtractor:
             amount_total=amount_total,
             amount_tax=amount_tax,
             amount_untaxed=amount_untaxed,
-            company_id=self.cif,
+            company_vat=self.cif,
         )
 
         return invoice
@@ -118,3 +123,34 @@ class InvoiceExtractor:
             lines.append(fallback_line)
 
         return lines
+
+
+class CredentialExtractor:
+    def __init__(self, credentials: ServiceCredentialsResponse):
+        self.credentials = credentials
+
+    def _get_value_by_key(self, key: str) -> str:
+        for item in self.credentials.credentials:
+            if item.key.upper() == key.upper():
+                return item.value
+        raise CustomAppException(f"Falta la credencial requerida: '{key}'")
+
+    def get_cif(self) -> str | None:
+        return self._get_value_by_key("CIF")
+
+    def get_processor(self) -> str | None:
+        return self._get_value_by_key("PROCESSOR")
+
+    def get_storage(self) -> str | None:
+        return self._get_value_by_key("STORAGE")
+
+    def get_taggun_token(self) -> str | None:
+        return self._get_value_by_key("TAGGUN")
+
+    def extract_required_credentials(self) -> ExtractedCredentials:
+        return ExtractedCredentials(
+            cif=self._get_value_by_key("CIF"),
+            processor=self._get_value_by_key("PROCESSOR"),
+            storage=self._get_value_by_key("STORAGE"),
+            taggun=self._get_value_by_key("TAGGUN"),
+        )

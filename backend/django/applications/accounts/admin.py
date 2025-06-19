@@ -7,5 +7,5 @@ from .forms import AccountAdminForm
 @admin.register(Account)
 class AccountAdmin(admin.ModelAdmin):
     form = AccountAdminForm
-    list_display = ("name", "user", "created")
+    list_display = ("name", "user", "created", "total_invoices_scanned")
     search_fields = ("name", "user__email")

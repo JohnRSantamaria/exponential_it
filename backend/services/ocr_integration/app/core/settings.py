@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     PORT: int = 8001
     DEBUG: bool = True
 
+    # Id del servicio
+    SERVICE_ID: int = 1
+
     # Logging
     LOG_LEVEL: str = "INFO"
     ERROR_LOG_FILE: Path = Field(default=BASE_DIR / "app" / "logs" / "errors.log")
@@ -39,12 +42,17 @@ class Settings(BaseSettings):
     # services url
     URL_ZOHO: str
     URL_OPENAPI: str
+    URL_ADMIN: str
 
     # Dropbox Credentials
     DROPBOX_ACCESS_TOKEN: str | None = None
     DROPBOX_REFRESH_TOKEN: str | None = None
     DROPBOX_APP_KEY: str | None = None
     DROPBOX_APP_SECRET: str | None = None
+
+    # Taggun URL
+    TAGGUN_URL: str = "https://api.taggun.io/api/receipt/v1/verbose/file"
+    # TAGGUN_URL: str = "https://api.taggun.io/api/receipt/v1/verbose/encoded"
 
     # Timeout para HTTPX
     HTTP_TIMEOUT_CONNECT: float = Field(

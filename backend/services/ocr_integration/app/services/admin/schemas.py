@@ -9,6 +9,8 @@ class UserDataSchema(BaseModel):
     email: str
     active_subscriptions: List[int]
     exp: int
+    account_id: int
+    account_name: str
 
     class Config:
         from_attributes = True  # Pydantic v2 — reemplaza orm_mode
@@ -40,3 +42,23 @@ class CredentialOut(BaseModel):
         key = str(cred.key).lower().strip()
 
         return cls(key=key, value=value)
+
+
+class Credential(BaseModel):
+    id: int
+    key: str
+    value: str
+    is_secret: bool
+
+
+class ServiceCredentialsResponse(BaseModel):
+    service: str
+    service_name: str
+    credentials: List[Credential]
+
+
+class ExtractedCredentials(BaseModel):
+    cif: str
+    processor: str
+    storage: str
+    taggun: str

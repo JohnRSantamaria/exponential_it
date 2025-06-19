@@ -61,7 +61,7 @@ class LogoutView(APIView):
 
 
 class MeView(APIView):
-    # authentication_classes = [AppTokenAuthentication]
+    authentication_classes = [AppTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def get(self, request):

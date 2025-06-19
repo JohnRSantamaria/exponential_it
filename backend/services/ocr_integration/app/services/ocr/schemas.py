@@ -36,7 +36,7 @@ class Invoice(BaseModel):
     amount_total: Optional[float] = Field(None, title="Total de la Factura")
     payment_term_id: Optional[int] = Field(None, title="ID de Término de Pago")
     payment_reference: Optional[str] = Field(None, title="Referencia de Pago")
-    company_vat: Optional[int] = Field(None, description="ID de la Empresa")
+    company_vat: Optional[str] = Field(None, description="ID de la Empresa")
     company_name: Optional[str] = Field(None, title="Nombre de la Empresa")
     account_category: Optional[AccountCategory] = Field(
         None, title="Solo valido para Zoho"
