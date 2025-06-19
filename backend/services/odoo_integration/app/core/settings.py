@@ -13,7 +13,6 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 env_local = BASE_DIR / ".env.local"
 debug_raw = dotenv_values(env_local).get("DEBUG", "true").strip().lower()
 debug_mode = debug_raw in ["1", "true", "yes", "on"]
-
 env_file_to_use = env_local if debug_mode else BASE_DIR / ".env.prod"
 
 
@@ -24,7 +23,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Logging
-    LOG_LEVEL: str = "INFO"
+    LOG_LEVEL: str
     ERROR_LOG_FILE: Path = Field(default=BASE_DIR / "app" / "logs" / "errors.log")
 
     # JWT desde Django

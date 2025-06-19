@@ -1,69 +1,35 @@
-def get_or_create_supplier(cliente, name, vat, email=None):
-    existing = cliente.read(
-        "res.partner", [["name", "=", name], ["vat", "=", vat]], fields=["id"]
-    )
-    if existing:
-        return existing[0]["id"]
+from app.services.odoo.schemas.partnet_address import AddressCreateSchema
+from app.services.odoo.schemas.supplier import SupplierCreateSchema
+from app.services.odoo.utils.cleanner import clean_enum_payload
 
-    return cliente.create(
+
+def get_or_create_supplier(company, supplier_data: SupplierCreateSchema):
+    existing = company.read(
         "res.partner",
-        {
-            "name": name,
-            "vat": vat,  # NIT o identificación fiscal
-            "supplier_rank": 1,
-            "email": email,
-            "company_type": "company",
-        },
-    )
-
-
-def get_or_create_product(cliente, name, default_code=None, price=0.0):
-    domain = [["name", "=", name]]
-    if default_code:
-        domain.append(["default_code", "=", default_code])
-
-    existing = cliente.read("product.product", domain, fields=["id"])
-    if existing:
-        return existing[0]["id"]
-
-    return cliente.create(
-        "product.product",
-        {
-            "name": name,
-            "list_price": price,
-            "default_code": default_code or "",
-            "type": "consu",  # puede ser 'service', 'consu',
-        },
-    )
-
-
-def factura_exists(cliente, reference):
-    facturas = cliente.read(
-        "account.move",
-        [["ref", "=", reference], ["move_type", "=", "in_invoice"]],
+        [["name", "=", supplier_data.name], ["vat", "=", supplier_data.vat]],
         fields=["id"],
     )
-    return facturas[0]["id"] if facturas else None
+    if existing:
+        return existing[0]["id"]
+
+    payload = clean_enum_payload(supplier_data.as_odoo_payload())
+    return company.create("res.partner", payload)
 
 
-def create_invoice(cliente, partner_id, product_id, quantity, price_unit, reference):
-    return cliente.create(
-        "account.move",
-        {
-            "move_type": "in_invoice",
-            "partner_id": partner_id,
-            "ref": reference,
-            "invoice_line_ids": [
-                (
-                    0,
-                    0,
-                    {
-                        "product_id": product_id,
-                        "quantity": quantity,
-                        "price_unit": price_unit,
-                        "name": f"{quantity}x Producto",
-                    },
-                )
-            ],
-        },
-    )
+def get_or_create_address(company, address_data: AddressCreateSchema):
+    domain = [
+        ["parent_id", "=", address_data.partner_id],
+        ["name", "=", address_data.address_name],
+        ["street", "=", address_data.street],
+        ["city", "=", address_data.city],
+        ["type", "=", address_data.address_type.value],
+    ]
+    if address_data.country_id:
+        domain.append(["country_id", "=", address_data.country_id])
+
+    existing = company.read("res.partner", domain, fields=["id"])
+    if existing:
+        return existing[0]["id"]
+
+    payload = clean_enum_payload(address_data.as_odoo_payload())
+    return company.create("res.partner", payload)

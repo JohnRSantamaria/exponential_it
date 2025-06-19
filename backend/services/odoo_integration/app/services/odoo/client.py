@@ -1,12 +1,8 @@
 import xmlrpc.client
 import socket
-
-
-from app.services.odoo.utils import parse_fault_string
-from exponential_core.logger import configure_logging
 from exponential_core.exceptions.types import OdooException
-
-logger = configure_logging()
+from app.services.odoo.utils.parse_fault import parse_fault_string
+from app.core.logging import logger 
 
 
 class OdooClient:

@@ -1,16 +1,16 @@
 from app.services.odoo.client import OdooClient
 
 
-class OdooClientFactory:
+class OdooCompanyFactory:
     def __init__(self):
-        self._clients = {}
+        self._companies = {}
 
-    def register_client(self, name, url, db, username, api_key):
-        client = OdooClient(url, db, username, api_key)
-        self._clients[name] = client
+    def register_company(self, name, url, db, username, api_key):
+        company = OdooClient(url, db, username, api_key)
+        self._companies[name] = company
 
-    def get_client(self, name):
-        return self._clients.get(name)
+    def get_company(self, name):
+        return self._companies.get(name)
 
-    def list_clients(self):
-        return list(self._clients.keys())
+    def list_companies(self):
+        return list(self._companies.keys())
