@@ -2,13 +2,12 @@ from typing import List
 
 from pydantic import TypeAdapter
 
+from app.core.logging import logger
 from app.core.interface.account_provider import AccountingProvider
-from app.core.logger import configure_logging
+
 from app.services.ocr.schemas import Invoice
 from app.services.zoho.schemas.tax_response import ZohoTaxResponse
-from app.core.exceptions.types import TaxIdNotFoundError
-
-logger = configure_logging()
+from exponential_core.exceptions import TaxIdNotFoundError
 
 
 def calculate_tax_percentage_candidates(

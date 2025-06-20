@@ -1,15 +1,12 @@
 from typing import List
 from pydantic import TypeAdapter
 
-from app.core.logger import configure_logging
+from app.core.logging import logger
 from app.core.interface.account_provider import AccountingProvider
 
-from app.services.ocr.schemas import Invoice, Supplier
+from app.core.utils.comparator import are_similar
+from app.services.ocr.schemas import Supplier
 from app.services.zoho.schemas.contact_response import ZohoContactResponse
-
-from app.utils.comparator import are_similar
-
-logger = configure_logging()
 
 
 def extract_cifs(contact: ZohoContactResponse) -> List[str]:

@@ -5,11 +5,8 @@ import json
 from jwcrypto import jwt, jwk
 from fastapi import HTTPException, Header
 
-from app.core.logger import configure_logging
 from app.core.settings import settings
-from app.services.admin.schemas import UserDataSchema
-
-logger = configure_logging()
+from app.core.logging import logger
 
 
 async def get_current_user(authorization: str = Header(...)):

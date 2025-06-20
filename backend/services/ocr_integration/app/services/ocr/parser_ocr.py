@@ -1,9 +1,6 @@
 from app.services.admin.schemas import CredentialOut
 from app.services.ocr.extractor import InvoiceExtractor
 from app.services.ocr.schemas import Invoice, Supplier
-from app.core.logger import configure_logging
-
-logger = configure_logging()
 
 
 def parser_invoice(cif: CredentialOut, ocr_data: dict) -> Invoice:

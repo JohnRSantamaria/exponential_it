@@ -1,20 +1,18 @@
 from typing import Annotated
 from fastapi import File, UploadFile
 
+from app.core.logging import logger
 from app.core.settings import settings
 from app.core.enums import UploadersEnum
-from app.core.logger import configure_logging
+
 from app.services.admin.client import AdminService
 from app.services.admin.schemas import UserDataSchema
 from app.services.ocr.extractor import CredentialExtractor
 from app.services.ocr.parser_ocr import parser_invoice, parser_supplier
-from app.services.ocr.utils.supplier_tax_id import extract_supplier_tax_id
+from app.core.utils.supplier_tax_id import extract_supplier_tax_id
 from app.services.taggun.client import send_file_to_taggun
 from app.services.upload.process import save_file
 from app.services.zoho.process import zoho_process
-
-
-logger = configure_logging()
 
 
 async def optical_character_recognition(

@@ -1,18 +1,15 @@
 from typing import List
 from pydantic import TypeAdapter
 
-from app.core.logger import configure_logging
+from app.core.logging import logger
 from app.core.interface.account_provider import AccountingProvider
 
+from app.core.utils.comparator import are_similar
 from app.services.ocr.schemas import Invoice
 from app.services.openai.client import OpenAIService
 from app.services.zoho.tax_resolver import get_tax_id
 from app.services.zoho.schemas.bill_reponse import ZohoBillResponse
 from app.services.zoho.account_type_resolver import build_classification_payload
-
-from app.utils.comparator import are_similar
-
-logger = configure_logging()
 
 
 async def get_bill_id(

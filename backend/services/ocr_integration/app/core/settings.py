@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     SERVICE_ID: int = 1
 
     # Logging
-    LOG_LEVEL: str = "INFO"
+    LOG_LEVEL: str = "DEBUG"
     ERROR_LOG_FILE: Path = Field(default=BASE_DIR / "app" / "logs" / "errors.log")
 
     # JWT desde Django

@@ -1,11 +1,12 @@
 import httpx
 from typing import List
 
-from app.core.exceptions.types import CustomAppException
 from app.core.interface.provider_config import ProviderConfig
 from app.services.openai.schemas.account_category import AccountCategory
 from app.services.zoho.schemas.chart_of_accounts_response import ZohoAccountResponse
 from app.core.settings import settings
+
+from exponential_core.exceptions import CustomAppException
 
 
 class OpenAIService:

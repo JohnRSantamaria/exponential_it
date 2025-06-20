@@ -1,8 +1,9 @@
 from typing import List, Tuple
-from app.core.exceptions.types import ValidTaxIdNotFoundError
-from app.services.ocr.utils.fiscal_id_extractor import FiscalIdExtractor
-from app.services.ocr.utils.tax_id_validator import TaxIdValidator
+
+from app.core.utils.fiscal_id_extractor import FiscalIdExtractor
+from app.core.utils.tax_id_validator import TaxIdValidator
 from iso3166 import countries
+from exponential_core.exceptions import ValidTaxIdNotFoundError
 
 
 def is_valid_vat_country_code(vat_id: str) -> bool:

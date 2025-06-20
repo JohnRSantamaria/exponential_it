@@ -1,11 +1,9 @@
 from typing import List, Union
 from fastapi import Depends, HTTPException
 
-from app.core.logger import configure_logging
+from app.core.logging import logger
 from app.core.security import get_current_user
 from app.services.admin.schemas import UserDataSchema
-
-logger = configure_logging()
 
 
 def required_service(required_services: List[Union[int, str]]):

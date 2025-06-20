@@ -1,17 +1,17 @@
 from typing import Annotated
 
 from fastapi import File, UploadFile
+
+from app.core.logging import logger
 from app.core.settings import settings
 from app.core.enums import ServicesEnum
 from app.core.adapter.base import get_provider
 from app.core.interface.provider_config import ProviderConfig
-from app.core.logger import configure_logging
+
 from app.services.ocr.schemas import Invoice, Supplier
 from app.services.openai.client import OpenAIService
 from app.services.zoho.bill_resolver import create_bill_id, get_bill_id
 from app.services.zoho.contact_resolver import get_or_create_partner_id
-
-logger = configure_logging()
 
 
 async def zoho_process(

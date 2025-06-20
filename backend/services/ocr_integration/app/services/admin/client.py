@@ -1,8 +1,9 @@
 import httpx
 from app.core.settings import settings
-from app.core.exceptions.types import CustomAppException
 from app.core.interface.provider_config import ProviderConfig
 from app.services.admin.schemas import ServiceCredentialsResponse
+
+from exponential_core.exceptions import CustomAppException
 
 
 class AdminService:

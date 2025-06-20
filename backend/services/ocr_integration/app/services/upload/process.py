@@ -2,18 +2,15 @@ import asyncio
 import os
 import tempfile
 import time
-import uuid
 import hashlib
 from pathlib import Path
 from fastapi import UploadFile
 
+from app.core.logging import logger
 from app.core.enums import UploadersEnum
-from app.core.logger import configure_logging
+from app.core.utils.path_builder import PathBuilder
 from app.services.ocr.schemas import Invoice
 from app.services.upload.factory import get_uploader
-from app.utils.path_builder import PathBuilder
-
-logger = configure_logging()
 
 
 def calculate_file_hash(file_bytes: bytes) -> str:

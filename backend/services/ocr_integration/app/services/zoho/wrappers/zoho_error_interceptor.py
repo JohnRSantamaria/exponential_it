@@ -3,9 +3,7 @@ import traceback
 
 from fastapi import HTTPException
 
-from app.core.logger import configure_logging
-
-logger = configure_logging()
+from app.core.logging import logger
 
 
 def error_interceptor(func):

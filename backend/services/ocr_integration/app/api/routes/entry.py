@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, File, Request, Response, UploadFile
 
 from app.api.dependencies import required_service
 
-from app.core.logger import configure_logging
+from app.core.logging import logger
 from app.core.settings import settings
 from app.core.interface.provider_config import ProviderConfig
 
@@ -12,7 +12,6 @@ from app.services.admin.schemas import UserDataSchema
 from app.services.ocr.process import optical_character_recognition
 
 
-logger = configure_logging()
 router = APIRouter()
 
 

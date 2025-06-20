@@ -1,14 +1,15 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
-from app.core.exceptions.types import CustomAppException
 from app.services.ocr.enums import InvoiceState
+from app.services.ocr.schemas import Invoice, InvoiceLine, Supplier
 from app.services.admin.schemas import (
     CredentialOut,
     ExtractedCredentials,
     ServiceCredentialsResponse,
 )
-from app.services.ocr.schemas import Invoice, InvoiceLine, Supplier
+
+from exponential_core.exceptions import CustomAppException
 
 
 class InvoiceExtractor:

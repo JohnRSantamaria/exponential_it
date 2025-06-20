@@ -1,18 +1,16 @@
 from fastapi import UploadFile
 import httpx
-from app.core.logger import configure_logging
+
+from app.core.logging import logger
 from app.core.settings import settings
 from app.core.interface.account_provider import AccountingProvider
 from app.core.interface.provider_config import ProviderConfig
 from app.services.ocr.schemas import Invoice, Supplier
+from app.services.zoho.wrappers.zoho_error_interceptor import error_interceptor
 from app.services.zoho.builders import (
     build_zoho_contact_payload,
     build_zoho_invoice_payload,
 )
-from app.services.zoho.wrappers.zoho_error_interceptor import error_interceptor
-
-
-logger = configure_logging()
 
 
 class ZohoAdapter(AccountingProvider):

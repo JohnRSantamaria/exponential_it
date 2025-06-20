@@ -1,5 +1,6 @@
 from typing import List
-from app.utils.comparator import are_similar, all_similar
+
+from app.core.utils.comparator import all_similar, are_similar
 
 
 class TaxIdValidator:

@@ -4,7 +4,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from app.core.settings import settings
 
 fernet = Fernet(settings.CRYPTO_KEY)
-logger = logging.getLogger("uvicorn.error")
+from app.core.logging import logger
 
 
 def decrypt_value(value: bytes) -> str:
