@@ -4,12 +4,10 @@ import json
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from app.core.logger import configure_logging
+from app.core.logging import logger
 from app.services.openai.client import openai_client
 from app.services.openai.schemas.account_category import AccountCategory
 
-# Logger
-logger = configure_logging()
 
 DEFAULT_CATEGORY = {
     "account_id": "6222726000000035005",

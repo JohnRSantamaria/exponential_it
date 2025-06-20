@@ -1,5 +1,5 @@
 # app/core/settings.py
-
+import os
 from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
@@ -9,12 +9,11 @@ from dotenv import dotenv_values
 # Base del proyecto: /backend/services/ocr_integration
 BASE_DIR = Path(__file__).resolve().parents[2]
 
-# Detectar si usar .env.local o .env.prod
-env_local = BASE_DIR / ".env.local"
-debug_raw = dotenv_values(env_local).get("DEBUG", "true").strip().lower()
-debug_mode = debug_raw in ["1", "true", "yes", "on"]
+# Detectar si estoy en Docker
+RUNNING_IN_DOCKER = os.getenv("RUNNING_IN_DOCKER", "").strip() == "1"
 
-env_file_to_use = env_local if debug_mode else BASE_DIR / ".env.prod"
+# Solo usar .env.local en local
+ENV_FILE = BASE_DIR / ".env.local" if not RUNNING_IN_DOCKER else None
 
 
 class Settings(BaseSettings):
@@ -47,7 +46,7 @@ class Settings(BaseSettings):
         return Path(v) if isinstance(v, str) else v
 
     class Config:
-        env_file = env_file_to_use
+        env_file = ENV_FILE
         env_file_encoding = "utf-8"
 
 

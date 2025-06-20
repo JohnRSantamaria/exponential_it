@@ -1,12 +1,8 @@
 from typing import List
 from fastapi import APIRouter, Body
-from app.core.exceptions.types import CustomAppException
-from app.core.logger import configure_logging
+from app.core.logging import logger
 from app.services.openai.account_classifier import classify_account
 from app.services.zoho.schemas.chart_of_accounts_response import ZohoAccount
-
-# Logger
-logger = configure_logging()
 
 router = APIRouter()
 
