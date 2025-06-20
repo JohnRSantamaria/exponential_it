@@ -22,7 +22,7 @@ async def optical_character_recognition(
 ):
 
     # 🔐 Obtener credenciales
-    logger.info("🔐 Obtener credenciales")
+    logger.debug("🔐 Obteniendo credenciales")
     service_credentials = await admin_service.service_credentials(
         service_id=settings.SERVICE_ID
     )

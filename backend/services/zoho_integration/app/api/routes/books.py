@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, File, UploadFile
+from fastapi import APIRouter, Body, File, UploadFile
 
 from app.services.zoho.schemas.create_bill import CreateZohoBillRequest
 from app.services.zoho.schemas.create_contact import CreateZohoContactRequest

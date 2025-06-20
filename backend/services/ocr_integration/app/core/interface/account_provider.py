@@ -40,3 +40,8 @@ class AccountingProvider(ABC):
         raise NotImplementedError(
             "get_all_taxes() no está implementado para este proveedor"
         )
+
+    async def create_company(self):
+        raise NotImplementedError(
+            "create_company() no está implementado para este proveedor"
+        )

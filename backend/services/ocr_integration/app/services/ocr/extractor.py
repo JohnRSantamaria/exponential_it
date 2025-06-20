@@ -18,6 +18,10 @@ class InvoiceExtractor:
         self.cif = cif
 
     def extract_invoice(self) -> Invoice:
+        """
+        El término "partner" (socio) se refiere a cualquier entidad con la que tu empresa interactúe.
+        El término "company" (empresa) representa tu propia compañía.
+        """
 
         partner_name = self.ocr_data.get("entities", {}).get("merchantName", {}).get(
             "data"
@@ -50,12 +54,10 @@ class InvoiceExtractor:
         amount_untaxed = round(amount_total - amount_tax, 2)
 
         invoice = Invoice(
-            partner_id=None,
             partner_name=partner_name,
             partner_vat=partner_vat,
             date_invoice=date_invoice,
             invoice_origin=invoice_origin,
-            state=InvoiceState.draft,  # TODO : Hay que preguntar como se optiene o se deja Draft
             invoice_lines=[],
             amount_total=amount_total,
             amount_tax=amount_tax,

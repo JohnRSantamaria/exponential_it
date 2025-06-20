@@ -24,9 +24,6 @@ async def ocr_invoices(
     """
     Esta ruta procesa documentos OCR solo si el usuario está autenticado correctamente con un JWT emitido por Django.
     """
-
-    logger.info("Proceso de Optical Character Recognition (OCR) iniciado.")
-
     raw_auth = request.headers.get("Authorization")
 
     admin_service = AdminService(
@@ -42,5 +39,4 @@ async def ocr_invoices(
         admin_service=admin_service,
     )
 
-    logger.info("Proceso de Optical Character Recognition (OCR) finalizado con éxito.")
     return Response(status_code=201)

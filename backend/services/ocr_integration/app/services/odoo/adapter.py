@@ -6,6 +6,7 @@ from app.core.interface.provider_config import ProviderConfig
 
 class OdooAdapter(AccountingProvider):
     def __init__(self, config: ProviderConfig):
-        self.user = config.user
-        self.password = config.password
-    
+        self.url = config.path
+
+    def create_company():
+        pass
