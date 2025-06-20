@@ -20,3 +20,14 @@ class AddressTypeEnum(str, Enum):
 class CompanyTypeEnum(str, Enum):
     company = "company"  # Empresa (jurídica)
     person = "person"  # Persona natural
+
+
+class ProductTypeEnum(str, Enum):
+    consu = "consu"  # Producto consumible (no se gestiona inventario)
+    service = "service"  # Producto tipo servicio (no material)
+
+
+class TaxUseEnum(str, Enum):
+    sale = "sale"  # Venta
+    purchase = "purchase"  # Compra
+    none = "none"  # Otros usos (en algunos Odoo)
