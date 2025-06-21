@@ -5,11 +5,10 @@ services:
             context: .
             dockerfile: Dockerfile
         command: uvicorn app.main:app --host 0.0.0.0 --port 8004
-
         env_file:
             - .env.prod
-        volumes:
-            - ./app:/code
+        environment:
+            RUNNING_IN_DOCKER: '1'
         ports:
             - '8004:8004'
         networks:
