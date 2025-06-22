@@ -5,12 +5,12 @@ class OdooCompanyFactory:
     def __init__(self):
         self._companies = {}
 
-    def register_company(self, name, url, db, username, api_key):
+    def register_company(self, client_vat, url, db, username, api_key):
         company = OdooClient(url, db, username, api_key)
-        self._companies[name] = company
+        self._companies[client_vat] = company
 
-    def get_company(self, name):
-        return self._companies.get(name)
+    def get_company(self, client_vat):
+        return self._companies.get(client_vat)
 
     def list_companies(self):
         return list(self._companies.keys())

@@ -24,25 +24,30 @@ def odoo_process():
     El término "company" (empresa) representa tu propia compañía.
     """
 
-    odoo_secrets = SecretsService(client_vat="cliente1")
+    client_vat = "B70845755"
+
+    odoo_secrets = SecretsService(client_vat)
     api_key = odoo_secrets.get_api_key()
+    url = odoo_secrets.get_url()
+    db = odoo_secrets.get_db()
+    username = odoo_secrets.get_username()
 
     factory = OdooCompanyFactory()
     factory.register_company(
-        name="company1",
-        url="https://exptest.gest.ozonomultimedia.com",
-        db="odooexptest",
-        username="jhon.rincon@exponentialit.net",
+        client_vat=client_vat,
+        url=url,
+        db=db,
+        username=username,
         api_key=api_key,
     )
 
-    company = factory.get_company("company1")
+    company = factory.get_company(client_vat=client_vat)
     logger.debug(f"Company creada")
 
     # 👤 Crear proveedor (partner)
     supplier_data = SupplierCreateSchema(
         name="Alvifusta",
-        vat="B96382718",
+        vat=client_vat,
         email="alvifusta@alvifusta.com",
         phone="962239022",
         company_type=CompanyTypeEnum.company,

@@ -1,5 +1,5 @@
 from exponential_core.secrets import SecretManager
-from app.services.odoo.exceptions import OdooSecretsNotFound, MissingSecretKey
+from exponential_core.exceptions import SecretsNotFound, MissingSecretKey
 
 
 class SecretsService:
@@ -10,10 +10,19 @@ class SecretsService:
         self._secrets = self.secret_manager.get_secret()
 
         if self._secrets is None or not self._secrets:
-            raise OdooSecretsNotFound(client_vat=self.client_vat)
+            raise SecretsNotFound(client_vat=self.client_vat)
 
     def get_api_key(self) -> str:
         return self._get_required("api_key_odoo")
+
+    def get_url(self) -> str:
+        return self._get_required("url_odoo")
+
+    def get_db(self) -> str:
+        return self._get_required("db_odoo")
+
+    def get_username(self) -> str:
+        return self._get_required("username_odoo")
 
     def _get_required(self, key: str) -> str:
         value = self._secrets.get(key)
