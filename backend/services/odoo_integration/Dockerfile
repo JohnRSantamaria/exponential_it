@@ -9,7 +9,9 @@ RUN apk add --no-cache \
     gcc \
     musl-dev \
     libffi-dev \
-    libc-dev
+    libc-dev \
+    git  
+
 
 # Actualiza pip y herramientas de build
 RUN python -m pip install --upgrade pip setuptools wheel
