@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 from exponential_core.secrets import SecretManager
@@ -11,6 +12,12 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 RUNNING_IN_DOCKER = os.getenv("RUNNING_IN_DOCKER", "").strip() == "1"
 ENV_FILE = BASE_DIR / ".env.local" if not RUNNING_IN_DOCKER else None
 
+# 📦 Cargar manualmente el .env.local si no estamos en Docker
+if not RUNNING_IN_DOCKER and ENV_FILE and ENV_FILE.exists():
+    from dotenv import load_dotenv
+
+    load_dotenv(dotenv_path=ENV_FILE)
+
 # Instancia global del SecretManager con nombre base de secreto
 secret_manager = SecretManager(
     base_secret_name="exponentialit/core",
@@ -18,11 +25,11 @@ secret_manager = SecretManager(
 )
 
 # Carga y cachea los secretos específicos para esta app
-aws_secrets = secret_manager.get_secret(ttl_seconds=600) or {}
+aws_secrets = secret_manager.get_secret() or {}
 
 
 class Settings(BaseSettings):
-    # Configuración general del servidor
+    # ⚙️ Configuración general del servidor
     HOST: str = "0.0.0.0"
     PORT: int = 8004
     DEBUG: bool = True
@@ -31,17 +38,21 @@ class Settings(BaseSettings):
     LOG_LEVEL: str
     ERROR_LOG_FILE: Path = Field(default=BASE_DIR / "app" / "logs" / "errors.log")
 
-    # JWT desde Django
+    # JWT
     JWT_SECRET_KEY: str = aws_secrets.get("jwt_secret_key", "")
     JWT_ALGORITHM: str = "HS256"
 
     # Base de datos
     DATABASE_URL: str
 
-    # Clave de encriptación interna
+    # Criptografía interna
     CRYPTO_KEY: str = aws_secrets.get("crypto_key", "")
 
-    # Validar que ERROR_LOG_FILE siempre sea un Path
+    # (opcional) declarar las variables si quieres usarlas
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_DEFAULT_REGION: str = "eu-west-3"
+
     @field_validator("ERROR_LOG_FILE", mode="before")
     @classmethod
     def convert_str_to_path(cls, v):
@@ -50,7 +61,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ENV_FILE
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
-# Instancia global de settings
 settings = Settings()

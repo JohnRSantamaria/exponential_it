@@ -1,7 +1,14 @@
 from datetime import datetime, timezone
 
+from app.core.logging import logger
+
 from app.services.odoo.factory import OdooCompanyFactory
-from app.core.settings import settings
+from app.services.odoo.secrets import SecretsService
+from app.services.odoo.schemas.product import ProductCreateSchema
+from app.services.odoo.schemas.supplier import SupplierCreateSchema
+from app.services.odoo.schemas.partnet_address import AddressCreateSchema
+from app.services.odoo.schemas.invoice import InvoiceCreateSchema, InvoiceLineSchema
+from app.services.odoo.schemas.enums import CompanyTypeEnum, AddressTypeEnum, TaxUseEnum
 from app.services.odoo.operations import (
     create_invoice,
     get_or_create_address,
@@ -9,13 +16,6 @@ from app.services.odoo.operations import (
     get_or_create_supplier,
     get_tax_id_by_amount,
 )
-from app.services.odoo.schemas.invoice import InvoiceCreateSchema, InvoiceLineSchema
-from app.services.odoo.schemas.partnet_address import AddressCreateSchema
-from app.services.odoo.schemas.product import ProductCreateSchema
-from app.services.odoo.schemas.supplier import SupplierCreateSchema
-from app.services.odoo.schemas.enums import CompanyTypeEnum, AddressTypeEnum, TaxUseEnum
-
-from app.core.logging import logger
 
 
 def odoo_process():
@@ -24,15 +24,18 @@ def odoo_process():
     El término "company" (empresa) representa tu propia compañía.
     """
 
-    factory = OdooCompanyFactory()
+    odoo_secrets = SecretsService(client_vat="cliente1")
+    api_key = odoo_secrets.get_api_key()
 
+    factory = OdooCompanyFactory()
     factory.register_company(
         name="company1",
         url="https://exptest.gest.ozonomultimedia.com",
         db="odooexptest",
         username="jhon.rincon@exponentialit.net",
-        api_key=settings.API_KEY_ODOO,
+        api_key=api_key,
     )
+
     company = factory.get_company("company1")
     logger.debug(f"Company creada")
 
