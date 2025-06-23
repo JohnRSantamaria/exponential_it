@@ -1,19 +1,15 @@
-class   ProviderConfig:
-    def __init__(
-        self,
-        server_url: str,
-        token: str = None,
-        user: str = None,
-        password: str = None,
-        api_prefix: str = None,
-    ):
+from pydantic import BaseModel
 
-        self.server_url = server_url
-        self.api_prefix = api_prefix
-        self.user = user
-        self.token = token
-        self.password = password
 
-        self.path = (
-            f"{server_url}{api_prefix}" if api_prefix is not None else server_url
-        )
+class ProviderConfig(BaseModel):
+    server_url: str
+    token: str | None = None
+    user: str | None = None
+    password: str | None = None
+    api_prefix: str | None = None
+
+    @property
+    def path(self) -> str:
+        if self.api_prefix:
+            return f"{self.server_url.rstrip('/')}/{self.api_prefix.lstrip('/')}"
+        return self.server_url

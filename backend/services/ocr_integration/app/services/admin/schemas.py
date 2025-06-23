@@ -61,4 +61,3 @@ class ExtractedCredentials(BaseModel):
     cif: str
     processor: str
     storage: str
-    taggun: str

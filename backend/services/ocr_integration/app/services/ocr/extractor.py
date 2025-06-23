@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, List
 
-from app.services.ocr.enums import InvoiceState
+
 from app.services.ocr.schemas import Invoice, InvoiceLine, Supplier
 from app.services.admin.schemas import (
     CredentialOut,
@@ -147,13 +147,9 @@ class CredentialExtractor:
     def get_storage(self) -> str | None:
         return self._get_value_by_key("STORAGE")
 
-    def get_taggun_token(self) -> str | None:
-        return self._get_value_by_key("TAGGUN")
-
     def extract_required_credentials(self) -> ExtractedCredentials:
         return ExtractedCredentials(
             cif=self._get_value_by_key("CIF"),
             processor=self._get_value_by_key("PROCESSOR"),
             storage=self._get_value_by_key("STORAGE"),
-            taggun=self._get_value_by_key("TAGGUN"),
         )

@@ -1,18 +1,32 @@
 # app/core/settings.py
-
 import os
 from pathlib import Path
+from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
+from exponential_core.secrets import SecretManager
 
-# Base del proyecto: /backend/services/ocr_integration
+# Base del proyecto: /backend/services/odoo_integration
 BASE_DIR = Path(__file__).resolve().parents[2]
 
-# Detectar si estoy en Docker
+# Detectar si estamos en Docker (usado solo para saber si se carga el .env.local o no)
 RUNNING_IN_DOCKER = os.getenv("RUNNING_IN_DOCKER", "").strip() == "1"
-
-# Solo usar .env.local en local
 ENV_FILE = BASE_DIR / ".env.local" if not RUNNING_IN_DOCKER else None
+
+# 📦 Cargar manualmente el .env.local si no estamos en Docker
+if not RUNNING_IN_DOCKER and ENV_FILE and ENV_FILE.exists():
+    from dotenv import load_dotenv
+
+    load_dotenv(dotenv_path=ENV_FILE)
+
+# Instancia global del SecretManager con nombre base de secreto
+secret_manager = SecretManager(
+    base_secret_name="exponentialit/core",
+    default_ttl_seconds=300,
+)
+
+# Carga y cachea los secretos específicos para esta app
+aws_secrets = secret_manager.get_secret() or {}
 
 
 class Settings(BaseSettings):
@@ -22,21 +36,26 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     # Id del servicio
-    SERVICE_ID: int = 1
+    SERVICE_ID: int = 1  # El servicio de OCR sera el numero 1
 
     # Logging
     LOG_LEVEL: str = "DEBUG"
     ERROR_LOG_FILE: Path = Field(default=BASE_DIR / "app" / "logs" / "errors.log")
 
     # JWT desde Django
-    JWT_SECRET_KEY: str
+    JWT_SECRET_KEY: str = aws_secrets.get("JWT_SECRET_KEY", "")
     JWT_ALGORITHM: str = "HS256"
 
     # DataBase
     DATABASE_URL: str
 
     # Crypto keys
-    CRYPTO_KEY: str
+    CRYPTO_KEY: str = aws_secrets.get("CRYPTO_KEY", "")
+
+    # (opcional) declarar las variables si quieres usarlas
+    AWS_ACCESS_KEY_ID: Optional[str] = None
+    AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    AWS_DEFAULT_REGION: str = "eu-west-3"
 
     # services url
     URL_ZOHO: str
@@ -44,14 +63,9 @@ class Settings(BaseSettings):
     URL_OPENAPI: str
     URL_ADMIN: str
 
-    # Dropbox Credentials
-    DROPBOX_ACCESS_TOKEN: str | None = None
-    DROPBOX_REFRESH_TOKEN: str | None = None
-    DROPBOX_APP_KEY: str | None = None
-    DROPBOX_APP_SECRET: str | None = None
-
     # Taggun URL
     TAGGUN_URL: str = "https://api.taggun.io/api/receipt/v1/verbose/file"
+    TAGGUN_APIKEY: str = aws_secrets.get("TAGGUN_API_KEY", "")
 
     # Timeout para HTTPX
     HTTP_TIMEOUT_CONNECT: float = Field(
@@ -80,6 +94,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ENV_FILE
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 settings = Settings()

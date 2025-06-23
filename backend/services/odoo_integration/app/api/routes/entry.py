@@ -7,7 +7,7 @@ router = APIRouter()
 
 
 @router.post("/")
-async def entry():
+def entry():
     """ """
     logger.debug("Inicia proceso en Odoo.")
 

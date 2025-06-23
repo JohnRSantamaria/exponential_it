@@ -12,7 +12,8 @@ app = FastAPI(title="ODOO API", version="1.0", root_path="/odoo")
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Registrar rutas
-app.include_router(entry.router, prefix="/api", tags=["api"])
+app.include_router(entry.router, prefix="/api")
+app.include_router(entry.router, prefix="/api")
 
 # Registrar todos los exception handlers de forma automática
 setup_exception_handlers(app)

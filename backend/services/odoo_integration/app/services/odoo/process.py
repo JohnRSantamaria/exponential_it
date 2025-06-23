@@ -26,11 +26,11 @@ def odoo_process():
 
     client_vat = "B70845755"
 
-    odoo_secrets = SecretsService(client_vat)
-    api_key = odoo_secrets.get_api_key()
-    url = odoo_secrets.get_url()
-    db = odoo_secrets.get_db()
-    username = odoo_secrets.get_username()
+    secrets = SecretsService(client_vat)
+    api_key = secrets.get_api_key()
+    url = secrets.get_url()
+    db = secrets.get_db()
+    username = secrets.get_username()
 
     factory = OdooCompanyFactory()
     factory.register_company(

@@ -15,6 +15,7 @@ def get_provider(service: ServicesEnum) -> AccountingProvider:
             )
         )
     if service == ServicesEnum.ODOO:
-        return OdooAdapter(config=ProviderConfig(server_url=settings.URL_ODOO))
+        # return OdooAdapter(config=ProviderConfig(server_url=settings.URL_ODOO))
+        pass
     else:
         raise NotImplementedError("No está implementado para este proveedor")
