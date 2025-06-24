@@ -1,7 +1,6 @@
 # app/core/settings.py
 import os
 from pathlib import Path
-from typing import Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 from exponential_core.secrets import SecretManager
