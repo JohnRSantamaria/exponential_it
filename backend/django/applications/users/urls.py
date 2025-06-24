@@ -19,5 +19,5 @@ urlpatterns = [
     path(
         "identify/", IdentifyUserAccountsView.as_view(), name="identify-user-accounts"
     ),
-    path("<int:user_id>/register-scan/", RegisterInvoiceScanView.as_view()),
+    path("register-scan/", RegisterInvoiceScanView.as_view()),
 ]

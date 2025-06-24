@@ -1,21 +1,12 @@
 from fastapi import APIRouter, Form, File, UploadFile
-from app.core.logging import logger
+
+from app.services.taggun.main import handle_invoice_scan
+
 
 router = APIRouter()
 
 
 @router.post("/")
 async def base(recipient: str = Form(...), file: UploadFile = File(...)):
-    logger.debug(f"Recipient: {recipient}")
-    logger.debug(f"Archivo recibido: {file.filename}")
-
-    # content = await file.read()
-    # logger.debug(f"Tamaño del archivo: {len(content)} bytes")
-
-    
-
-    return {
-        "message": "Archivo recibido correctamente",
-        "recipient": recipient,
-        "filename": file.filename,
-    }
+    """Extrae y da formato a los datos de la imagenes."""
+    return await handle_invoice_scan(recipient=recipient, file=file)

@@ -48,6 +48,31 @@ class Settings(BaseSettings):
     # Crypto keys
     CRYPTO_KEY: str = aws_secrets.get("CRYPTO_KEY", "")
 
+    # URLs de los servicios de ExponentialIT
+    URL_ADMIN: str
+
+    # Taggun URL
+    TAGGUN_URL: str = "https://api.taggun.io/api/receipt/v1/verbose/file"
+    TAGGUN_APIKEY: str = aws_secrets.get("TAGGUN_API_KEY", "")
+
+    # Timeout para HTTPX
+    HTTP_TIMEOUT_CONNECT: float = Field(
+        default=10.0,
+        description="Tiempo máximo (en segundos) para establecer la conexión HTTP",
+    )
+    HTTP_TIMEOUT_READ: float = Field(
+        default=60.0,
+        description="Tiempo máximo (en segundos) para recibir la respuesta completa del servidor",
+    )
+    HTTP_TIMEOUT_WRITE: float = Field(
+        default=10.0,
+        description="Tiempo máximo (en segundos) para enviar el cuerpo de la solicitud HTTP",
+    )
+    HTTP_TIMEOUT_POOL: float = Field(
+        default=5.0,
+        description="Tiempo máximo (en segundos) para obtener una conexión disponible del pool de conexiones",
+    )
+
     # Conversión de string a Path si se define por entorno
     @field_validator("ERROR_LOG_FILE", mode="before")
     @classmethod

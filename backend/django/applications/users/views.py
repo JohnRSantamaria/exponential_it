@@ -82,13 +82,13 @@ class IdentifyUserAccountsView(APIView):
 
 
 class RegisterInvoiceScanView(APIView):
-    authentication_classes = [AppTokenAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
 
-    def post(self, request, user_id):
+    def post(self, request):
+        user_id = request.data.get("user_id")
+        account_id = request.data.get("account_id")
+
         success, response_data, http_status = handle_invoice_scan(
-            user=request.user,
-            user_id=user_id,
-            jwt_data=request.jwt_payload,
+            user_id=user_id, account_id=account_id
         )
         return Response(response_data, status=http_status)
