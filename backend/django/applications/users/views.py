@@ -77,9 +77,7 @@ class IdentifyUserAccountsView(APIView):
 
     def post(self, request):
         email = request.data.get("email")
-        password = request.data.get("password")
-
-        success, response_data, http_status = identify_user_accounts(email, password)
+        success, response_data, http_status = identify_user_accounts(email)
         return Response(response_data, status=http_status)
 
 

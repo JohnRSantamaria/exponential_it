@@ -2,19 +2,25 @@
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+from applications.accounts.validators import validate_tax_id
 from users.models import User
 
 
 class Account(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accounts")
     name = models.CharField(max_length=100)
+    tax_id = models.CharField(
+        help_text="Identificacion fiscal",
+        max_length=20,
+        validators=[validate_tax_id],
+        unique=True,
+    )
     created = models.DateTimeField(default=timezone.now)
     total_invoices_scanned = models.PositiveIntegerField(default=0)
 
     def clean(self):
 
         normalized_name = "_".join(self.name.lower().strip().split())
-
         qs = Account.objects.filter(user=self.user, name=normalized_name)
         if self.pk:
             qs = qs.exclude(pk=self.pk)

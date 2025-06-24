@@ -1,6 +1,6 @@
 services:
-    orchestator:
-        container_name: orchestator
+    taggun_integration:
+        container_name: taggun_integration
         build:
             context: .
             dockerfile: Dockerfile
