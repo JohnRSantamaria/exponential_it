@@ -11,6 +11,7 @@ from app.core.logging import logger
 from app.core.schemas.enums import UploadersEnum
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.upload.factory import get_uploader
+from app.services.upload.secrets import SecretsService
 from app.services.upload.utils.path_builder import PathBuilder
 
 
@@ -22,6 +23,7 @@ async def save_file_dropbox(
     file: UploadFile,
     file_content: bytes,
     taggun_data: TaggunExtractedInvoice,
+    company_vat: str,
     max_retries: int = 3,
 ):
     file_ext = os.path.splitext(file.filename or "")[-1]
@@ -33,7 +35,8 @@ async def save_file_dropbox(
     uploader_name = UploadersEnum.DROPBOX.value
     logger.debug(f"uploader_name : {uploader_name}")
 
-    uploader = get_uploader(name=UploadersEnum.DROPBOX)
+    credentials = SecretsService(company_vat=company_vat).get_dropbox_credentials()
+    uploader = get_uploader(name=UploadersEnum.DROPBOX, **credentials)
 
     if hasattr(uploader, "exists") and await asyncio.to_thread(
         uploader.exists, full_remote_path

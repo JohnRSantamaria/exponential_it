@@ -2,8 +2,14 @@ import functools
 import traceback
 
 from fastapi import HTTPException
+import httpx
 
 from app.core.logging import logger
+from app.services.zoho.exceptions import (
+    ZohoConnectionError,
+    ZohoTimeoutError,
+    ZohoUnexpectedError,
+)
 
 
 def error_interceptor(func):
@@ -36,9 +42,23 @@ def error_interceptor(func):
                     return list(response.values())[0]
             return response
 
+        except httpx.TimeoutException as e:
+            logger.error(f"[ZohoTimeout] {e}")
+            raise ZohoTimeoutError()
+
+        except httpx.ConnectError as e:
+            logger.error(f"[ZohoConnectionError] {e}")
+            raise ZohoConnectionError()
+
+        except httpx.RequestError as e:
+            logger.error(f"[ZohoRequestError] {e}")
+            raise ZohoUnexpectedError(
+                message="Error de solicitud a Zoho", data={"detail": str(e)}
+            )
+
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error(f"[UnhandledError] {str(e)}\nTraceback:\n{tb}")
-            raise
+            logger.error(f"[UnhandledZohoError] {str(e)}\nTraceback:\n{tb}")
+            raise ZohoUnexpectedError(message=str(e))
 
     return wrapper

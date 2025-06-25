@@ -9,8 +9,8 @@ UPLOADER_REGISTRY = {
 }
 
 
-def get_uploader(name: UploadersEnum) -> FileUploader:
+def get_uploader(name: UploadersEnum, **kwargs) -> FileUploader:
     uploader_cls = UPLOADER_REGISTRY.get(name)
     if not uploader_cls:
         raise ValueError(f"Unknown uploader: {name}")
-    return uploader_cls()
+    return uploader_cls(**kwargs)

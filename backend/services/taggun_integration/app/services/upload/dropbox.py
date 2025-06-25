@@ -7,16 +7,22 @@ from app.core.settings import settings
 
 
 class DropboxUploader(FileUploader):
-    def __init__(self):
+    def __init__(
+        self,
+        access_token: str,
+        refresh_token: str,
+        app_key: str,
+        app_secret: str,
+    ):
         session = requests.Session()
         adapter = requests.adapters.HTTPAdapter(max_retries=3)
         session.mount("https://", adapter)
 
         self.dbx = dropbox.Dropbox(
-            oauth2_access_token=settings.DROPBOX_ACCESS_TOKEN,
-            oauth2_refresh_token=settings.DROPBOX_REFRESH_TOKEN,
-            app_key=settings.DROPBOX_APP_KEY,
-            app_secret=settings.DROPBOX_APP_SECRET,
+            oauth2_access_token=access_token,
+            oauth2_refresh_token=refresh_token,
+            app_key=app_key,
+            app_secret=app_secret,
             session=session,
         )
 

@@ -38,4 +38,5 @@ async def handle_invoice_scan(recipient: str, file: UploadFile):
         file=file,
         file_content=file_content,
         taggun_data=taggun_data,
+        company_vat=company_vat,
     )
