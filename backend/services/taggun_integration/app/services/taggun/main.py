@@ -1,5 +1,6 @@
-import base64
 from fastapi import UploadFile
+from app.services.upload.process import save_file_dropbox
+from app.services.zoho.main import zoho_process
 from .ocr import extract_ocr_payload, extract_taggun_data
 from .account_lookup import get_accounts_by_email
 from .tax_id_matching import find_tax_ids, get_account_match
@@ -18,6 +19,7 @@ async def handle_invoice_scan(recipient: str, file: UploadFile):
 
     payload_text = payload.get("text", {}).get("text", "")
     company_vat, partner_vat, extractor = find_tax_ids(payload_text, all_tax_ids)
+    taggun_data.partner_vat = partner_vat
 
     account = get_account_match(accounts_response, company_vat, extractor)
 
@@ -26,8 +28,14 @@ async def handle_invoice_scan(recipient: str, file: UploadFile):
         account_id=account.account_id,
     )
 
-    return {
-        "partner_vat": partner_vat,
-        "company_vat": company_vat,
-        "taggun_data": taggun_data.model_dump(mode="json"),
-    }
+    await zoho_process(
+        file=file,
+        file_content=file_content,
+        taggun_data=taggun_data,
+    )
+
+    await save_file_dropbox(
+        file=file,
+        file_content=file_content,
+        taggun_data=taggun_data,
+    )

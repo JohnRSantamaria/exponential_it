@@ -10,14 +10,14 @@ from app.services.openai.schemas.account_category import AccountCategory
 
 
 DEFAULT_CATEGORY = {
-    "account_id": "6222726000000035005",
-    "account_name": "Sin categorizar",
+    "account_id": "6421233000000035005",
+    "account_name": "Uncategorized",
 }
 
 MAX_ATTEMPTS = 2
 
 
-async def classify_account(text: str, chart: list[dict]) -> AccountCategory:
+async def classify_account(text: str, chart: str) -> AccountCategory:
     prompt = f"""
         Dado el siguiente texto extraído de una factura:
 

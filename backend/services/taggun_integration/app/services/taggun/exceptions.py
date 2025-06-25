@@ -16,3 +16,15 @@ class AccountNotFoundError(CustomAppException):
 class AdminServiceError(CustomAppException):
     def __init__(self, message="Error al comunicarse con el servicio Admin", data=None):
         super().__init__(message, data, status_code=503)
+
+
+class FieldNotFoundError(CustomAppException):
+    def __init__(self, field_name: str, message: str = None, data: dict = None):
+        default_message = (
+            f"No se encontró un valor valido para el campo requerido: '{field_name}'"
+        )
+        super().__init__(
+            message=message or default_message,
+            data={**(data or {}), "field": field_name},
+            status_code=422,
+        )

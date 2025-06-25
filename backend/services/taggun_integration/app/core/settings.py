@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     TAGGUN_URL: str = "https://api.taggun.io/api/receipt/v1/verbose/file"
     TAGGUN_APIKEY: str = aws_secrets.get("TAGGUN_API_KEY", "")
 
+    # services url
+    URL_ZOHO: str
+    URL_ODOO: str
+    URL_OPENAPI: str
+    URL_ADMIN: str
+
     # Timeout para HTTPX
     HTTP_TIMEOUT_CONNECT: float = Field(
         default=10.0,

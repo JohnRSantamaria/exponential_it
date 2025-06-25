@@ -10,7 +10,7 @@ router = APIRouter()
 @router.post("/classify-expense")
 async def classify_expense(
     text: str = Body(..., embed=True),
-    chart_of_accounts: List[ZohoAccount] = Body(...),
+    chart_of_accounts: str = Body(...),
 ):
     """
     Clasifica un gasto usando un plan contable (ZohoAccount).

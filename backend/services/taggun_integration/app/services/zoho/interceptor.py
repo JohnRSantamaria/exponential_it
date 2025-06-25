@@ -1,0 +1,44 @@
+import functools
+import traceback
+
+from fastapi import HTTPException
+
+from app.core.logging import logger
+
+
+def error_interceptor(func):
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            response = await func(*args, **kwargs)
+
+            if isinstance(response, list):
+                return response
+
+            if isinstance(response, dict):
+                code = int(response.pop("code", 0))
+                message = response.pop("message", None)
+                error_type = response.pop("error_type", None)
+
+                if code != 0:
+                    error_message = f"[ZohoError] Código: {code}, mensaje: {message}"
+                    logger.error(error_message)
+                    raise HTTPException(status_code=500, detail=error_message)
+
+                if error_type:
+                    detail = response.get(
+                        "detail", "error en el servicio de zoho integration"
+                    )
+                    status_code = int(response.get("status_code", 500))
+                    logger.error(f"[ZohoError] Tipo: {error_type}, Detalle: {detail}")
+                    raise HTTPException(status_code=status_code, detail=detail)
+                if len(response) == 1:
+                    return list(response.values())[0]
+            return response
+
+        except Exception as e:
+            tb = traceback.format_exc()
+            logger.error(f"[UnhandledError] {str(e)}\nTraceback:\n{tb}")
+            raise
+
+    return wrapper

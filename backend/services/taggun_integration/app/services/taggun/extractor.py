@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from app.core.logging import logger
+from app.services.taggun.exceptions import FieldNotFoundError
 from app.services.taggun.schemas.taggun_models import (
     AddressSchema,
     LineItemSchema,
@@ -94,6 +96,10 @@ class TaggunExtractor:
             ["invoiceNumber", "data"],
             ["entities", "invoiceNumber", "data"],
         )
+
+        logger.debug(f"invoice_number: {invoice_number}")
+        if not invoice_number:
+            raise FieldNotFoundError("invoice_number")
 
         amount_total = self.safe_float(self.try_paths(["totalAmount", "data"]))
         amount_tax = self.safe_float(self.try_paths(["taxAmount", "data"]))
