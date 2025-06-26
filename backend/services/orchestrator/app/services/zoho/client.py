@@ -140,7 +140,7 @@ async def classification_for_account(
     config = ProviderConfig(server_url=settings.URL_OPENAPI, api_prefix="/api")
     openai_service = OpenAIService(config=config)
 
-    logger.debug("Inicia el proceso de claseficación")
+    logger.debug("Inicia el proceso de clasificación")
     raw_accounts = await zoho_provider.get_chart_of_accounts()
     accounts = [
         {

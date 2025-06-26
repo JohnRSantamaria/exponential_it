@@ -51,3 +51,6 @@ class DropboxUploader(FileUploader):
             ):
                 return False
             raise
+
+    def close(self):
+        self.dbx._session.close()

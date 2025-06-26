@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import UploadFile
 from app.services.upload.process import save_file_dropbox
 from app.services.zoho.processor import zoho_process
@@ -8,9 +9,11 @@ from .register import register_scan
 from app.core.logging import logger
 
 
-async def handle_invoice_scan(recipient: str, file: UploadFile):
-    logger.debug("Inicia el proceso")
-    file_content = await file.read()
+async def handle_invoice_scan(
+    recipient: str, file: UploadFile, file_content: bytes | None = None
+):
+    logger.debug(f"[{file.filename}] Inicia el proceso")
+    file_content = file_content or await file.read()
 
     logger.debug("Inicia el Extraccion de datos")
     payload = await extract_ocr_payload(file=file, file_content=file_content)
@@ -46,4 +49,19 @@ async def handle_invoice_scan(recipient: str, file: UploadFile):
         company_vat=company_vat,
     )
     logger.debug("Almacenamiento completado")
-    logger.debug("Finalizacion exitosa")
+    logger.debug(f"[{file.filename}] Finalización exitosa para {company_vat}")
+
+
+async def handle_multiple_invoice_scans(recipient: str, files: list[UploadFile]):
+    # Leer todo el contenido de los archivos en paralelo
+    contents = await asyncio.gather(*[file.read() for file in files])
+
+    # Ejecutar procesamiento de cada archivo en paralelo
+    results = await asyncio.gather(
+        *[
+            handle_invoice_scan(recipient=recipient, file=file, file_content=content)
+            for file, content in zip(files, contents)
+        ]
+    )
+
+    return results

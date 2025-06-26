@@ -35,7 +35,9 @@ async def save_file_dropbox(
     uploader_name = UploadersEnum.DROPBOX.value
     logger.debug(f"uploader_name : {uploader_name}")
 
-    credentials = SecretsService(company_vat=company_vat).get_dropbox_credentials()
+    secrets_service = await SecretsService(company_vat=company_vat).load()
+    credentials = secrets_service.get_dropbox_credentials()
+
     uploader = get_uploader(name=UploadersEnum.DROPBOX, **credentials)
 
     if hasattr(uploader, "exists") and await asyncio.to_thread(
