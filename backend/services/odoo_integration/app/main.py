@@ -4,16 +4,23 @@ from exponential_core.exceptions import (
     GlobalExceptionMiddleware,
 )
 from app.api.routes import entry
+from app.core.lifespan import lifespan
 
 # Crear instancia de FastAPI
-app = FastAPI(title="ODOO API", version="1.0", root_path="/odoo")
+app = FastAPI(
+    title="ODOO API",
+    version="1.0",
+    root_path="/odoo",
+    lifespan=lifespan,
+)
 
 # Middleware global para manejar errores inesperados
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Registrar rutas
-app.include_router(entry.router, prefix="/api")
-app.include_router(entry.router, prefix="/api")
+app.include_router(
+    entry.router,
+)
 
 # Registrar todos los exception handlers de forma automática
 setup_exception_handlers(app)

@@ -3,7 +3,7 @@ from fastapi import Depends, HTTPException, Header
 
 from app.core.security import get_current_user
 from app.services.admin.schemas import UserDataSchema
-from app.services.odoo.factory import OdooCompanyFactory
+from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.secrets import SecretsService
 
 
@@ -38,14 +38,17 @@ def get_client_vat(x_client_vat: str = Header(...)) -> str:
     return x_client_vat
 
 
-def get_company(client_vat: str = Depends(get_client_vat)) -> OdooCompanyFactory:
-    secrets = SecretsService(client_vat)
-    factory = OdooCompanyFactory()
-    factory.register_company(
-        client_vat=client_vat,
-        url=secrets.get_url(),
-        db=secrets.get_db(),
-        username=secrets.get_username(),
-        api_key=secrets.get_api_key(),
+async def get_company(client_vat: str = Depends(get_client_vat)) -> AsyncOdooClient:
+
+    secrets_service = await SecretsService(company_vat=client_vat).load()
+
+    client = AsyncOdooClient(
+        url=secrets_service.get_url(),
+        db=secrets_service.get_db(),
+        username=secrets_service.get_username(),
+        api_key=secrets_service.get_api_key(),
     )
-    return factory.get_company(client_vat)
+
+    await client.authenticate()
+
+    return client

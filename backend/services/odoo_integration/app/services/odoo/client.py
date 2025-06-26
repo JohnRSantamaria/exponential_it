@@ -1,121 +1,99 @@
-import xmlrpc.client
-import socket
+import httpx
 from exponential_core.exceptions.types import OdooException
-from app.services.odoo.utils.parse_fault import parse_fault_string
-
 from exponential_core.logger import get_logger
 
 logger = get_logger()
 
 
-class OdooClient:
+class AsyncOdooClient:
     def __init__(self, url, db, username, api_key):
         self.url = url
         self.db = db
         self.username = username
         self.api_key = api_key
-        logger.info(f"Iniciando cliente Odoo para usuario '{username}' en DB '{db}'")
-        self.uid = self._authenticate()
-        self.models = xmlrpc.client.ServerProxy(f"{url}/xmlrpc/2/object")
+        self.jsonrpc_url = f"{url}/jsonrpc"
+        self.uid = None
 
-    def _authenticate(self):
+    async def authenticate(self):
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "call",
+            "params": {
+                "service": "common",
+                "method": "authenticate",
+                "args": [self.db, self.username, self.api_key, {}],
+            },
+            "id": 1,
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(self.jsonrpc_url, json=payload)
+
+        if response.status_code != 200 or "result" not in response.json():
+            raise OdooException("Fallo al autenticar con Odoo")
+
+        result = response.json()["result"]
+        if not result:
+            raise OdooException("Credenciales inválidas para Odoo", status_code=401)
+
+        logger.info("Autenticación exitosa con Odoo")
+        self.uid = result
+        return self.uid
+
+    async def call(self, model, method, args=None, kwargs=None):
+        if self.uid is None:
+            await self.authenticate()
+
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "call",
+            "params": {
+                "service": "object",
+                "method": "execute_kw",
+                "args": [
+                    self.db,
+                    self.uid,
+                    self.api_key,
+                    model,
+                    method,
+                    args or [],
+                    kwargs or {},
+                ],
+            },
+            "id": 1,
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(self.jsonrpc_url, json=payload)
+
         try:
-            logger.debug("Autenticando con Odoo...")
-            common = xmlrpc.client.ServerProxy(f"{self.url}/xmlrpc/2/common")
-            uid = common.authenticate(self.db, self.username, self.api_key, {})
-            if not uid:
-                logger.warning("Falló la autenticación con Odoo.")
-                raise OdooException("Autenticación fallida con Odoo", status_code=401)
-            logger.info("Autenticación exitosa con Odoo.")
-            return uid
-        except socket.error as e:
-            logger.error(f"Conexión fallida al servidor Odoo: {e}")
-            raise OdooException(
-                "No se pudo conectar al servidor de Odoo",
-                data={"error": str(e)},
-                status_code=503,
-            )
+            data = response.json()
+            if "error" in data:
+                logger.error(f"Odoo error: {data['error']}")
+                raise OdooException(f"OdooError: {data['error']['data']['message']}")
+            return data.get("result")
         except Exception as e:
-            logger.exception("Error inesperado al autenticar con Odoo.")
+            logger.exception("Fallo en la llamada JSON-RPC a Odoo")
             raise OdooException(
-                "Error inesperado al autenticar", data={"error": str(e)}
+                "Error inesperado al comunicarse con Odoo", data={"error": str(e)}
             )
 
-    def _handle_rpc(self, fn):
-        try:
-            return fn()
-        except xmlrpc.client.Fault as e:
-            msg = parse_fault_string(e.faultString)
-            logger.warning(f"OdooFault: {msg}")
-            raise OdooException(f"Odoo Fault: {msg}")
-        except socket.timeout:
-            logger.error("Timeout al comunicarse con Odoo.")
-            raise OdooException("Conexión a Odoo agotada (timeout)", status_code=504)
-        except socket.error as e:
-            logger.error(f"Error de red al comunicarse con Odoo: {e}")
-            raise OdooException(
-                "Error de red al comunicarse con Odoo",
-                data={"error": str(e)},
-                status_code=503,
-            )
-        except Exception as e:
-            logger.exception("Error inesperado al ejecutar operación en Odoo.")
-            raise OdooException(
-                "Error inesperado al ejecutar operación en Odoo",
-                data={"error": str(e)},
-                status_code=500,
-            )
+    async def create(self, model, data):
+        return await self.call(model, "create", [data])
 
-    def create(self, model, data):
-        logger.debug(f"Creando registro en {model}: {data}")
-        return self._handle_rpc(
-            lambda: self.models.execute_kw(
-                self.db, self.uid, self.api_key, model, "create", [data]
-            )
-        )
+    async def read(self, model, domain, fields=None):
+        return await self.call(model, "search_read", [domain], {"fields": fields or []})
 
-    def read(self, model, domain, fields=None):
-        logger.debug(
-            f"Leyendo registros de {model} con dominio {domain} y campos {fields}"
-        )
-        return self._handle_rpc(
-            lambda: self.models.execute_kw(
-                self.db,
-                self.uid,
-                self.api_key,
-                model,
-                "search_read",
-                [domain],
-                {"fields": fields or []},
-            )
-        )
+    async def update(self, model, ids, data):
+        return await self.call(model, "write", [ids, data])
 
-    def update(self, model, ids, data):
-        logger.debug(f"Actualizando {model} con IDs {ids}: {data}")
-        return self._handle_rpc(
-            lambda: self.models.execute_kw(
-                self.db, self.uid, self.api_key, model, "write", [ids, data]
-            )
-        )
+    async def delete(self, model, ids):
+        return await self.call(model, "unlink", [ids])
 
-    def delete(self, model, ids):
-        logger.debug(f"Eliminando de {model} los IDs {ids}")
-        return self._handle_rpc(
-            lambda: self.models.execute_kw(
-                self.db, self.uid, self.api_key, model, "unlink", [ids]
-            )
-        )
-
-    def fields_get(self, model, attributes=None):
-        logger.debug(f"Obteniendo campos de {model} con atributos {attributes}")
-        return self._handle_rpc(
-            lambda: self.models.execute_kw(
-                self.db,
-                self.uid,
-                self.api_key,
-                model,
-                "fields_get",
-                [],
-                {"attributes": attributes or ["string", "help", "type"]},
-            )
+    async def fields_get(self, model, attributes=None):
+        return await self.call(
+            model,
+            "fields_get",
+            [],
+            {"attributes": attributes or ["string", "help", "type"]},
         )

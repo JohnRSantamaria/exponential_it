@@ -1,16 +1,23 @@
 from exponential_core.secrets import SecretManager
-from exponential_core.exceptions import SecretsNotFound, MissingSecretKey
+from exponential_core.exceptions import (
+    SecretsNotFound,
+    MissingSecretKey,
+    SecretsServiceNotLoaded,
+)
 
 
 class SecretsService:
-    def __init__(self, client_vat: str):
-        self.client_vat = client_vat
-        self.secret_name = f"exponentialit/{client_vat}"
+    def __init__(self, company_vat: str):
+        self.company_vat = company_vat
+        self.secret_name = f"exponentialit/{company_vat}"
         self.secret_manager = SecretManager(base_secret_name=self.secret_name)
-        self._secrets = self.secret_manager.get_secret()
+        self._secrets = None
 
-        if self._secrets is None or not self._secrets:
-            raise SecretsNotFound(client_vat=self.client_vat)
+    async def load(self):
+        self._secrets = await self.secret_manager.get_secret()
+        if not self._secrets:
+            raise SecretsNotFound(company_vat=self.company_vat)
+        return self
 
     def get_api_key(self) -> str:
         return self._get_required("API_KEY_ODOO")
@@ -25,7 +32,9 @@ class SecretsService:
         return self._get_required("USERNAME_ODOO")
 
     def _get_required(self, key: str) -> str:
+        if self._secrets is None:
+            raise SecretsServiceNotLoaded()
         value = self._secrets.get(key)
         if not value:
-            raise MissingSecretKey(client_vat=self.client_vat, key=key)
+            raise MissingSecretKey(company_vat=self.company_vat, key=key)
         return value

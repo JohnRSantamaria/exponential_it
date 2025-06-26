@@ -15,7 +15,7 @@ class ProductCreateSchema(BaseModel):
     )
     uom_id: Optional[int] = Field(None, description="Unidad de medida")
     uom_po_id: Optional[int] = Field(None, description="Unidad de compra")
-    tax_ids: Optional[list[int]] = Field(None, description="IDs de impuestos")
+    taxes_id: Optional[list[int]] = Field(None, description="IDs de impuestos")
 
     def as_odoo_payload(self) -> dict:
         data = self.model_dump(exclude_none=True)

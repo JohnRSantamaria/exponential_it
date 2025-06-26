@@ -1,4 +1,4 @@
-from app.services.odoo.client import OdooClient
+from app.services.odoo.client import AsyncOdooClient
 
 
 class OdooCompanyFactory:
@@ -6,7 +6,7 @@ class OdooCompanyFactory:
         self._companies = {}
 
     def register_company(self, client_vat, url, db, username, api_key):
-        company = OdooClient(url, db, username, api_key)
+        company = AsyncOdooClient(url, db, username, api_key)
         self._companies[client_vat] = company
 
     def get_company(self, client_vat):

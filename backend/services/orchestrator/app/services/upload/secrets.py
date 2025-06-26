@@ -7,7 +7,7 @@ class SecretsService:
         self.company_vat = company_vat
         self.secret_name = f"exponentialit/{company_vat}"
         self.secret_manager = SecretManager(base_secret_name=self.secret_name)
-        self._secrets = None  # se carga luego
+        self._secrets = None
 
     async def load(self):
         self._secrets = await self.secret_manager.get_secret()
