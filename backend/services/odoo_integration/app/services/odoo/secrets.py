@@ -13,16 +13,16 @@ class SecretsService:
             raise SecretsNotFound(client_vat=self.client_vat)
 
     def get_api_key(self) -> str:
-        return self._get_required("api_key_odoo")
+        return self._get_required("API_KEY_ODOO")
 
     def get_url(self) -> str:
-        return self._get_required("url_odoo")
+        return self._get_required("URL_ODOO")
 
     def get_db(self) -> str:
-        return self._get_required("db_odoo")
+        return self._get_required("DB_ODOO")
 
     def get_username(self) -> str:
-        return self._get_required("username_odoo")
+        return self._get_required("USERNAME_ODOO")
 
     def _get_required(self, key: str) -> str:
         value = self._secrets.get(key)

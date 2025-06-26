@@ -39,14 +39,14 @@ class Settings(BaseSettings):
     ERROR_LOG_FILE: Path = Field(default=BASE_DIR / "app" / "logs" / "errors.log")
 
     # JWT
-    JWT_SECRET_KEY: str = aws_secrets.get("jwt_secret_key", "")
+    JWT_SECRET_KEY: str = aws_secrets.get("JWT_SECRET_KEY", "")
     JWT_ALGORITHM: str = "HS256"
 
     # Base de datos
     DATABASE_URL: str
 
     # Criptografía interna
-    CRYPTO_KEY: str = aws_secrets.get("crypto_key", "")
+    CRYPTO_KEY: str = aws_secrets.get("CRYPTO_KEY", "")
 
     # (opcional) declarar las variables si quieres usarlas
     AWS_ACCESS_KEY_ID: Optional[str] = None

@@ -15,6 +15,7 @@ from app.services.odoo.operations import (
     get_or_create_product,
     get_or_create_supplier,
     get_tax_id_by_amount,
+    register_company,
 )
 
 
@@ -25,6 +26,7 @@ def odoo_process():
     """
 
     client_vat = "B70845755"
+    # company = register_company(client_vat=client_vat)
 
     secrets = SecretsService(client_vat)
     api_key = secrets.get_api_key()
