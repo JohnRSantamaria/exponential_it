@@ -17,7 +17,7 @@ if not RUNNING_IN_DOCKER and ENV_FILE and ENV_FILE.exists():
 
 class Settings(BaseSettings):
     HOST: str = "0.0.0.0"
-    PORT: int = 8003
+    PORT: int = 8001
     DEBUG: bool = True
 
     LOG_LEVEL: str = "INFO"

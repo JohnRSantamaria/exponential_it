@@ -12,7 +12,7 @@ app = FastAPI(
     title="base API",
     version="1.0",
     root_path="/orchestator",
-    lifespan=lifespan,  # 👈 Aquí lo usas
+    lifespan=lifespan,
 )
 
 # Middleware global para manejar errores inesperados

@@ -5,9 +5,14 @@ from exponential_core.exceptions import (
     GlobalExceptionMiddleware,
 )
 from app.api.routes import entry
+from app.core.lifespan import lifespan
 
-
-app = FastAPI(title="OPENAI API", version="1.0", root_path="/openai")
+app = FastAPI(
+    title="OPENAI API",
+    version="1.0",
+    root_path="/openai",
+    lifespan=lifespan,
+)
 
 
 # Middleware global para manejar excepciones

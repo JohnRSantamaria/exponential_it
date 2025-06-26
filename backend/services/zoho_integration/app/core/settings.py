@@ -4,51 +4,42 @@ from pathlib import Path
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 
-
-# Base del proyecto: /backend/services/ocr_integration
+# Base del proyecto
 BASE_DIR = Path(__file__).resolve().parents[2]
-
-# Detectar si estoy en Docker
 RUNNING_IN_DOCKER = os.getenv("RUNNING_IN_DOCKER", "").strip() == "1"
-
-# Solo usar .env.local en local
 ENV_FILE = BASE_DIR / ".env.local" if not RUNNING_IN_DOCKER else None
+
+if not RUNNING_IN_DOCKER and ENV_FILE and ENV_FILE.exists():
+    from dotenv import load_dotenv
+
+    load_dotenv(dotenv_path=ENV_FILE)
 
 
 class Settings(BaseSettings):
-    # Configuración general del servidor
     HOST: str = "0.0.0.0"
     PORT: int = 8002
     DEBUG: bool = True
 
-    # Logging
     LOG_LEVEL: str = "INFO"
     ERROR_LOG_FILE: Path = Field(default=BASE_DIR / "app" / "logs" / "errors.log")
 
-    # JWT desde Django
-    JWT_SECRET_KEY: str
-    JWT_ALGORITHM: str = "HS256"
-
-    # Crypto keys
-    CRYPTO_KEY: str
-
-    # DataBase
     DATABASE_URL: str
 
-    # Zoho credentials
     ZOHO_CLIENT_ID: str
     ZOHO_CLIENT_SECRET: str
-    # Zoho URLs
     ZOHO_BASE_URL: str
     ZOHO_API_DOMAIN: str
-    # Zoho url de redirección
     ZOHO_REDIRECT_URI: str
 
-    # Token route
+    # Token routes
     TOKEN_FILE: Path = Field(default=BASE_DIR / "app" / "token" / "zoho_token.json")
     ORGANIZATION_FILE: Path = Field(
         default=BASE_DIR / "app" / "token" / "organization_id.json"
     )
+
+    JWT_ALGORITHM: str = "HS256"
+    JWT_SECRET_KEY: str = ""
+    CRYPTO_KEY: str = ""
 
     # Conversión de string a Path si se define por entorno
     @field_validator("ERROR_LOG_FILE", mode="before")
@@ -59,6 +50,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ENV_FILE
         env_file_encoding = "utf-8"
+        extra = "ignore"
 
 
 settings = Settings()
