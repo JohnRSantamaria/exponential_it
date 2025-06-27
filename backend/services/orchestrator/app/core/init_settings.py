@@ -12,6 +12,7 @@ async def inject_secrets():
         settings.JWT_SECRET_KEY = secrets.get("JWT_SECRET_KEY", "")
         settings.CRYPTO_KEY = secrets.get("CRYPTO_KEY", "")
         settings.TAGGUN_APIKEY = secrets.get("TAGGUN_API_KEY", "")
+
     except Exception as e:
         raise AWSConnectionError(
             detail=f"Fallo al conectar con AWS Secrets Manager: {str(e)}"

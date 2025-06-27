@@ -9,11 +9,14 @@ from app.services.odoo.operations import (
     get_or_create_supplier,
     get_tax_id_by_amount,
 )
-from app.services.odoo.schemas.enums import TaxUseEnum
-from app.services.odoo.schemas.invoice import InvoiceCreateSchema
-from app.services.odoo.schemas.partnet_address import AddressCreateSchema
-from app.services.odoo.schemas.product import ProductCreateSchema
-from app.services.odoo.schemas.supplier import SupplierCreateSchema
+
+from exponential_core.odoo import (
+    TaxUseEnum,
+    InvoiceCreateSchema,
+    AddressCreateSchema,
+    ProductCreateSchema,
+    SupplierCreateSchema,
+)
 
 router = APIRouter()
 

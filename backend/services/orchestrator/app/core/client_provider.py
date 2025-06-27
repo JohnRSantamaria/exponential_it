@@ -5,6 +5,7 @@ class ProviderConfig(BaseModel):
     server_url: str
     api_prefix: str | None = None
     api_key: str | None = None
+    company_vat: str | None = None
 
     @property
     def path(self) -> str:

@@ -5,10 +5,10 @@ from typing import List
 class AccountingProvider(ABC):
 
     @abstractmethod
-    async def create_vendor(self, vendor) -> dict:
+    async def create_vendor(self, payload) -> dict:
         pass
 
-    async def create_bill(self, bill) -> dict:
+    async def create_bill(self, payload) -> dict:
         raise NotImplementedError(
             "create_bill() no está implementado para este proveedor"
         )

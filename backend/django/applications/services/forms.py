@@ -8,7 +8,7 @@ class ServiceCredentialForm(forms.ModelForm):
     value = forms.CharField(
         required=False,
         label="Value",
-        widget=forms.PasswordInput(render_value=False),
+        widget=forms.TextInput(),
         help_text="Introduce un nuevo valor solo si deseas reemplazar el actual.",
     )
 

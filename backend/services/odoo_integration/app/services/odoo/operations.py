@@ -1,15 +1,18 @@
 from datetime import datetime
 from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.factory import OdooCompanyFactory
-from app.services.odoo.schemas.enums import TaxUseEnum
-from app.services.odoo.schemas.invoice import InvoiceCreateSchema
-from app.services.odoo.schemas.partnet_address import AddressCreateSchema
-from app.services.odoo.schemas.product import ProductCreateSchema
-from app.services.odoo.schemas.supplier import SupplierCreateSchema
 from app.services.odoo.secrets import SecretsService
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
 from exponential_core.exceptions import TaxIdNotFoundError
 from app.core.logging import logger
+
+from exponential_core.odoo import (
+    TaxUseEnum,
+    InvoiceCreateSchema,
+    AddressCreateSchema,
+    ProductCreateSchema,
+    SupplierCreateSchema,
+)
 
 
 async def get_or_create_supplier(

@@ -34,8 +34,6 @@ class AccountService(models.Model):
 class ServiceCredential(models.Model):
 
     choices = {
-        "CIF": "CIF",
-        "TAGGUN": "Taggun api key ",
         "PROCESSOR": "Procesador de facturacion",
         "STORAGE": "Proveedor de almacenamiento",
     }

@@ -1,5 +1,7 @@
 import asyncio
 from fastapi import UploadFile
+from app.core.settings import settings
+from app.services.odoo.processor import odoo_process
 from app.services.upload.process import save_file_dropbox
 from app.services.zoho.processor import zoho_process
 from .ocr import extract_ocr_payload, extract_taggun_data
@@ -7,6 +9,7 @@ from .account_lookup import get_accounts_by_email
 from .tax_id_matching import find_tax_ids, get_account_match
 from .register import register_scan
 from app.core.logging import logger
+from app.core.secrets import SecretsService
 
 
 async def handle_invoice_scan(
@@ -35,11 +38,20 @@ async def handle_invoice_scan(
     )
     logger.debug("Registro de escaneo completado")
 
-    await zoho_process(
-        file=file,
-        file_content=file_content,
-        taggun_data=taggun_data,
-    )
+    secrets_service = await SecretsService(company_vat=company_vat).load()
+    if secrets_service.get_invoice_processor() == "ZOHO":
+        await zoho_process(
+            file=file,
+            file_content=file_content,
+            taggun_data=taggun_data,
+        )
+    else:
+        await odoo_process(
+            taggun_data,
+            company_vat,
+        )
+        pass
+
     logger.debug("Registro de cuenta contable completado")
 
     await save_file_dropbox(
