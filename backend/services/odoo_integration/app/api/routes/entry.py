@@ -25,16 +25,8 @@ router = APIRouter()
 async def create_supplier(
     supplier_data: SupplierCreateSchema,
     company: AsyncOdooClient = Depends(get_company),
-    client_vat: str = Depends(get_client_vat),
 ):
     # 👤 Crear proveedor (partner) B70845755
-    if supplier_data.vat != client_vat:
-        return {
-            "error": "El VAT del proveedor no coincide con el del cliente autenticado.",
-            "body_vat": supplier_data.vat,
-            "header_vat": client_vat,
-        }
-
     partner_id = await get_or_create_supplier(company, supplier_data)
 
     return {"partner_id": partner_id}

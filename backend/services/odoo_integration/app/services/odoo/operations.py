@@ -38,7 +38,7 @@ async def get_or_create_address(
         ["name", "=", address_data.address_name],
         ["street", "=", address_data.street],
         ["city", "=", address_data.city],
-        ["type", "=", address_data.address_type.value],
+        ["type", "=", address_data.address_type],
     ]
     if address_data.country_id:
         domain.append(["country_id", "=", address_data.country_id])

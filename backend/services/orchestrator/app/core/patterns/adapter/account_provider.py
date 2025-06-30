@@ -44,3 +44,13 @@ class AccountingProvider(ABC):
         raise NotImplementedError(
             "create_company() no está implementado para este proveedor"
         )
+
+    async def create_address(self, payload):
+        raise NotImplementedError(
+            "create_address() no está implementado para este proveedor"
+        )
+
+    async def get_tax_id(self, payload):
+        raise NotImplementedError(
+            "get_tax_id() no está implementado para este proveedor"
+        )
