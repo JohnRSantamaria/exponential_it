@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.dependencies import get_client_vat, get_company
+from app.api.dependencies import get_company
 from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.operations import (
     get_or_create_address,
@@ -8,6 +8,7 @@ from app.services.odoo.operations import (
     get_or_create_product,
     get_or_create_supplier,
     get_tax_id_by_amount,
+    get_tax_ids,
 )
 
 from exponential_core.odoo import (
@@ -17,6 +18,7 @@ from exponential_core.odoo import (
     ProductCreateSchema,
     SupplierCreateSchema,
 )
+
 
 router = APIRouter()
 
@@ -53,6 +55,16 @@ async def get_tax_id(
         tax_type=TaxUseEnum.purchase,
     )
     return {"tax_id": tax_id}
+
+
+@router.get("/get-all-tax-id")
+async def get_all_tax_ids(
+    company: AsyncOdooClient = Depends(get_company),
+):
+    tax_ids = await get_tax_ids(
+        company,
+    )
+    return {"tax_ids": tax_ids}
 
 
 @router.post("/create-product")

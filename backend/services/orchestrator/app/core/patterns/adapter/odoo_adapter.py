@@ -63,3 +63,16 @@ class OdooAdapter(AccountingProvider):
             response = await client.get(url=url, headers=headers)
 
         return response.json()
+
+    @error_interceptor
+    async def get_all_taxes(self):
+
+        url = f"{self.path}/get-all-tax-id"
+        logger.debug(url)
+
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url=url, headers=headers)
+
+        return response.json()

@@ -1,11 +1,7 @@
 from datetime import datetime
 from app.services.odoo.client import AsyncOdooClient
-from app.services.odoo.factory import OdooCompanyFactory
-from app.services.odoo.secrets import SecretsService
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
 from exponential_core.exceptions import TaxIdNotFoundError
-from app.core.logging import logger
-
 from exponential_core.odoo import (
     TaxUseEnum,
     InvoiceCreateSchema,
@@ -50,6 +46,15 @@ async def get_or_create_address(
     payload = clean_enum_payload(address_data.as_odoo_payload())
 
     return await company.create("res.partner", payload)
+
+
+async def get_tax_ids(company: AsyncOdooClient) -> list[dict]:
+    taxes = await company.read(
+        "account.tax",
+        [["type_tax_use", "=", "purchase"]],
+        fields=["id", "name", "amount", "type_tax_use", "active"],
+    )
+    return taxes
 
 
 async def get_tax_id_by_amount(
@@ -116,25 +121,3 @@ async def get_or_create_invoice(
         payload["date"] = parse_to_date(payload.get("date"))
 
     return await company.create("account.move", payload)
-
-
-def register_company(client_vat: str):
-    # Obtención de paramatros
-    secrets = SecretsService(client_vat)
-    api_key = secrets.get_api_key()
-    url = secrets.get_url()
-    db = secrets.get_db()
-    username = secrets.get_username()
-
-    factory = OdooCompanyFactory()
-    factory.register_company(
-        client_vat=client_vat,
-        url=url,
-        db=db,
-        username=username,
-        api_key=api_key,
-    )
-
-    company = factory.get_company(client_vat=client_vat)
-    logger.debug(f"Company creada")
-    return company

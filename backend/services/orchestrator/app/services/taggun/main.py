@@ -50,7 +50,6 @@ async def handle_invoice_scan(
             taggun_data,
             company_vat,
         )
-        pass
 
     logger.debug("Registro de cuenta contable completado")
 

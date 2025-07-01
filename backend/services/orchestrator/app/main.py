@@ -11,7 +11,7 @@ from app.core.lifespan import lifespan
 app = FastAPI(
     title="base API",
     version="1.0",
-    root_path="/orchestator",
+    root_path="/orchestrator",
     lifespan=lifespan,
 )
 

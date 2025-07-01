@@ -27,38 +27,38 @@ def error_interceptor(func):
                 error_type = response.pop("error_type", None)
 
                 if code != 0:
-                    error_message = f"[ZohoError] Código: {code}, mensaje: {message}"
+                    error_message = f"[OdooError] Código: {code}, mensaje: {message}"
                     logger.error(error_message)
                     raise HTTPException(status_code=500, detail=error_message)
 
                 if error_type:
                     detail = response.get(
-                        "detail", "error en el servicio de zoho integration"
+                        "detail", "error en el servicio de Odoo integration"
                     )
                     status_code = int(response.get("status_code", 500))
-                    logger.error(f"[ZohoError] Tipo: {error_type}, Detalle: {detail}")
+                    logger.error(f"[OdooError] Tipo: {error_type}, Detalle: {detail}")
                     raise HTTPException(status_code=status_code, detail=detail)
                 if len(response) == 1:
                     return list(response.values())[0]
             return response
 
         except httpx.TimeoutException as e:
-            logger.error(f"[ZohoTimeout] {e}")
+            logger.error(f"[OdooTimeout] {e}")
             raise OdooTimeoutError()
 
         except httpx.ConnectError as e:
-            logger.error(f"[ZohoConnectionError] {e}")
+            logger.error(f"[OdooConnectionError] {e}")
             raise OdooConnectionError()
 
         except httpx.RequestError as e:
-            logger.error(f"[ZohoRequestError] {e}")
+            logger.error(f"[OdooRequestError] {e}")
             raise OdooUnexpectedError(
-                message="Error de solicitud a Zoho", data={"detail": str(e)}
+                message="Error de solicitud a Odoo", data={"detail": str(e)}
             )
 
         except Exception as e:
             tb = traceback.format_exc()
-            logger.error(f"[UnhandledZohoError] {str(e)}\nTraceback:\n{tb}")
+            logger.error(f"[UnhandledOdooError] {str(e)}\nTraceback:\n{tb}")
             raise OdooUnexpectedError(message=str(e))
 
     return wrapper

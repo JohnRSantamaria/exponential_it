@@ -1,8 +1,21 @@
-from aiohttp import Payload
+from typing import List
+from pydantic import TypeAdapter
+from app.core.logging import logger
 from app.core.patterns.adapter.odoo_adapter import OdooAdapter
+from app.services.openai.client import OpenAIService
+from app.services.openai.schemas.classification_tax_request import (
+    ClasificacionRequest,
+    TaxIdResponseSchema,
+)
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
-from exponential_core.odoo import SupplierCreateSchema, AddressCreateSchema
-from exponential_core.odoo import CompanyTypeEnum, AddressTypeEnum
+from app.services.zoho.tax_resolver import calculate_tax_percentage_candidates
+from exponential_core.odoo import (
+    SupplierCreateSchema,
+    AddressCreateSchema,
+    ResponseTaxesSchema,
+    CompanyTypeEnum,
+    AddressTypeEnum,
+)
 
 
 async def get_or_create_contact_id(
@@ -15,7 +28,7 @@ async def get_or_create_contact_id(
         vat=taggun_data.partner_vat,
         email=taggun_data.address.email,
         phone=taggun_data.address.phone,
-        company_type=CompanyTypeEnum.company,
+        company_type=CompanyTypeEnum.COMPANY,
         is_company=True,
         street=taggun_data.address.street,
         zip=taggun_data.address.postal_code,
@@ -36,7 +49,7 @@ async def get_or_create_address(
         partner_id=partner_id,
         street=taggun_data.address.street,
         city=taggun_data.address.city,
-        address_type=AddressTypeEnum.invoice,
+        address_type=AddressTypeEnum.INVOICE,
         zip=taggun_data.address.postal_code,
         phone=taggun_data.address.phone,
     )
@@ -44,9 +57,57 @@ async def get_or_create_address(
     return await odoo_provider.create_address(payload=payload)
 
 
-async def get_tax_id_by_amount(
+async def get_validated_tax_ids(
     odoo_provider: OdooAdapter,
-    taggun_data: TaggunExtractedInvoice,
-):
+) -> List[ResponseTaxesSchema]:
+    """ """
 
-    return await odoo_provider.get_tax_id()
+    raw_taxes = await odoo_provider.get_all_taxes()
+
+    return TypeAdapter(List[ResponseTaxesSchema]).validate_python(raw_taxes)
+
+
+async def get_tax_id_openai(
+    taggun_data: TaggunExtractedInvoice,
+    validated_tax_ids: List[ResponseTaxesSchema],
+    openai_service: OpenAIService,
+):
+    candidate_set = calculate_tax_percentage_candidates(
+        amount_tax=taggun_data.amount_tax,
+        amount_total=taggun_data.amount_total,
+        amount_untaxed=taggun_data.amount_untaxed,
+    )
+    logger.debug(f"Candidatos a porcentaje de impuesto: {candidate_set}")
+
+    proveedor = taggun_data.partner_name
+    nif = taggun_data.partner_vat
+    productos = taggun_data.line_items
+    iva_rate = next(iter(candidate_set))
+    candidate_tax_ids = validated_tax_ids
+
+    payload = {
+        "provider": proveedor,
+        "nif": nif,
+        "products": [
+            item.model_dump(mode="json", exclude_none=True) for item in productos
+        ],
+        "iva_rate": iva_rate,
+        "candidate_tax_ids": [
+            item.model_dump(mode="json", exclude_none=True)
+            for item in candidate_tax_ids
+        ],
+    }
+
+    payload = ClasificacionRequest(**payload)
+
+    tax_raw_response = await openai_service.classify_odoo_tax_id(payload)
+    try:
+        tax_response = TaxIdResponseSchema(**tax_raw_response)
+    except Exception as e:
+        raise Exception(f"Error al identificar el tax id en OpenAi{e}")
+
+    logger.debug(
+        f"Tax ID encontrada id: {tax_response.tax_id_number}, {tax_response.description}"
+    )
+
+    return tax_response.tax_id_number
