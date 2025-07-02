@@ -1,5 +1,6 @@
 from typing import List
 from pydantic import TypeAdapter
+from datetime import datetime
 from app.core.logging import logger
 from app.core.patterns.adapter.odoo_adapter import OdooAdapter
 from app.services.openai.client import OpenAIService
@@ -15,6 +16,10 @@ from exponential_core.odoo import (
     ResponseTaxesSchema,
     CompanyTypeEnum,
     AddressTypeEnum,
+    ProductCreateSchema,
+    ProductTypeEnum,
+    InvoiceLineSchema,
+    InvoiceCreateSchema,
 )
 
 
@@ -111,3 +116,65 @@ async def get_tax_id_openai(
     )
 
     return tax_response.tax_id_number
+
+
+async def get_tax_id_odoo(
+    taggun_data: TaggunExtractedInvoice,
+    odoo_provider: OdooAdapter,
+    openai_service: OpenAIService,
+) -> int:
+    validated_tax_ids = await get_validated_tax_ids(
+        odoo_provider=odoo_provider,
+    )
+
+    return await get_tax_id_openai(
+        taggun_data=taggun_data,
+        validated_tax_ids=validated_tax_ids,
+        openai_service=openai_service,
+    )
+
+
+async def get_or_create_products(
+    taggun_data: TaggunExtractedInvoice, odoo_provider: OdooAdapter, tax_id: int
+) -> list[InvoiceLineSchema]:
+    line_items = taggun_data.line_items
+    InvoiceLines: InvoiceLineSchema = []
+
+    for item in line_items:
+        payload = ProductCreateSchema(
+            name=item.name,
+            list_price=item.unit_price,
+            detailed_type=ProductTypeEnum.CONSU,
+            taxes_id=[tax_id],
+        )
+        product_id = await odoo_provider.create_product(payload=payload)
+
+        InvoiceLines.append(
+            InvoiceLineSchema(
+                product_id=product_id,
+                price_unit=item.unit_price,
+                quantity=item.quantity,
+                tax_ids=[tax_id],
+            )
+        )
+
+    return InvoiceLines
+
+
+async def get_or_create_invoice(
+    taggun_data: TaggunExtractedInvoice,
+    odoo_provider: OdooAdapter,
+    product_ids: list[InvoiceLineSchema],
+    partner_id: int,
+):
+    payload = InvoiceCreateSchema(
+        partner_id=partner_id,
+        ref=taggun_data.invoice_number,
+        payment_reference=taggun_data.invoice_number,
+        invoice_date=taggun_data.date,
+        date=datetime.now(),
+        to_check=True,
+        lines=product_ids,
+    )
+
+    return await odoo_provider.create_bill(payload=payload)

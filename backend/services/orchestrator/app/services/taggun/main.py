@@ -1,6 +1,5 @@
 import asyncio
 from fastapi import UploadFile
-from app.core.settings import settings
 from app.services.odoo.processor import odoo_process
 from app.services.upload.process import save_file_dropbox
 from app.services.zoho.processor import zoho_process
@@ -18,13 +17,12 @@ async def handle_invoice_scan(
     logger.debug(f"[{file.filename}] Inicia el proceso")
     file_content = file_content or await file.read()
 
-    logger.debug("Inicia el Extraccion de datos")
-    payload = await extract_ocr_payload(file=file, file_content=file_content)
-    taggun_data = extract_taggun_data(payload)
-
-    logger.debug("Obtencion de la cuenta asociada")
+    logger.debug(f"Inicia el Extraccion de datos para : {recipient}")
     accounts_response = await get_accounts_by_email(email=recipient)
     all_tax_ids = [a.account_tax_id for a in accounts_response.accounts]
+
+    payload = await extract_ocr_payload(file=file, file_content=file_content)
+    taggun_data = extract_taggun_data(payload)
 
     payload_text = payload.get("text", {}).get("text", "")
     company_vat, partner_vat, extractor = find_tax_ids(payload_text, all_tax_ids)

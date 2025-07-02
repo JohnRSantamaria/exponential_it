@@ -1,6 +1,7 @@
 import httpx
 from app.core.settings import settings
 from app.core.client_provider import ProviderConfig
+from exponential_core.exceptions.base import CustomAppException
 
 
 class TaggunService:
@@ -36,11 +37,25 @@ class TaggunService:
         }
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(
-                url=self.path,
-                headers=headers,
-                data=data,
-                files=files,
-            )
-            response.raise_for_status()
-            return response.json()
+            try:
+                response = await client.post(
+                    url=self.path,
+                    headers=headers,
+                    data=data,
+                    files=files,
+                )
+                response.raise_for_status()
+                return response.json()
+
+            except httpx.HTTPStatusError as e:
+                raise CustomAppException(
+                    f"Error HTTP al comunicarse con Taggun ({e.response.status_code}): {e.response.text}"
+                )
+
+            except httpx.RequestError as e:
+                raise CustomAppException(
+                    f"Error de red al comunicarse con Taggun: {str(e)}"
+                )
+
+            except Exception as e:
+                raise CustomAppException(f"Error inesperado en ocr_taggun: {str(e)}")

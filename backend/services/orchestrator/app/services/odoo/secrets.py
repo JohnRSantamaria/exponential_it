@@ -15,7 +15,7 @@ class SecretsServiceOdoo:
             raise SecretsNotFound(company_vat=self.company_vat)
         return self
 
-    def get_tax_id(self) -> str:
+    def get_tax_id(self) -> int:
         if self._secrets is None:
             return ""
         return self._secrets.get("TAX_ID_ODOO") or ""

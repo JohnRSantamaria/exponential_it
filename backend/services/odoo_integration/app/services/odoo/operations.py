@@ -1,4 +1,5 @@
 from datetime import datetime
+from app.core.logging import logger
 from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
 from exponential_core.exceptions import TaxIdNotFoundError
@@ -20,8 +21,10 @@ async def get_or_create_supplier(
         fields=["id"],
     )
     if existing:
+        logger.debug(f"Supplier ya existente: {existing[0]["id"]}")
         return existing[0]["id"]
 
+    logger.debug(f"Creando Supplier")
     payload = clean_enum_payload(supplier_data.as_odoo_payload())
     return await company.create("res.partner", payload)
 
@@ -41,10 +44,11 @@ async def get_or_create_address(
 
     existing = await company.read("res.partner", domain, fields=["id"])
     if existing:
+        logger.debug(f"Dirección ya existente: {existing[0]["id"]}")
         return existing[0]["id"]
 
+    logger.debug(f"Creando dirección")
     payload = clean_enum_payload(address_data.as_odoo_payload())
-
     return await company.create("res.partner", payload)
 
 
@@ -86,10 +90,11 @@ async def get_or_create_product(
 
     existing = await company.read("product.product", domain, fields=["id"])
     if existing:
+        logger.debug(f"Producto ya existente: {existing[0]["id"]}")
         return existing[0]["id"]
 
+    logger.debug(f"Creando producto")
     payload = clean_enum_payload(product_data.model_dump(exclude_none=True))
-
     return await company.create("product.product", payload)
 
 
@@ -110,9 +115,11 @@ async def get_or_create_invoice(
 
     existing = await company.read("account.move", domain, fields=["id"])
     if existing:
+        logger.debug(f"Factura ya existente: {existing[0]["id"]}")
         return existing[0]["id"]
 
     # Crear si no existe
+    logger.debug(f"Creando factura")
     payload = invoice_data.as_odoo_payload()
 
     if "invoice_date" in payload and isinstance(payload["invoice_date"], datetime):

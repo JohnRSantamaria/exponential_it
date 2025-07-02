@@ -68,7 +68,7 @@ async def get_all_tax_ids(
 
 
 @router.post("/create-product")
-async def crete_produt(
+async def create_product(
     product_data: ProductCreateSchema,
     company: AsyncOdooClient = Depends(get_company),
 ):

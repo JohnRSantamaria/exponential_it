@@ -8,8 +8,9 @@ from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.odoo.client import (
     get_or_create_address,
     get_or_create_contact_id,
-    get_tax_id_openai,
-    get_validated_tax_ids,
+    get_or_create_invoice,
+    get_or_create_products,
+    get_tax_id_odoo,
 )
 from app.core.logging import logger
 
@@ -45,14 +46,22 @@ async def odoo_process(
     tax_id = secrets_service.get_tax_id()
 
     if not tax_id:
-        validated_tax_ids = await get_validated_tax_ids(
-            odoo_provider=odoo_provider,
-        )
-
-        tax_id = await get_tax_id_openai(
+        tax_id = await get_tax_id_odoo(
             taggun_data=taggun_data,
-            validated_tax_ids=validated_tax_ids,
+            odoo_provider=odoo_provider,
             openai_service=openai_service,
         )
 
     # Create products
+    product_ids = await get_or_create_products(
+        taggun_data=taggun_data,
+        odoo_provider=odoo_provider,
+        tax_id=tax_id,
+    )
+
+    await get_or_create_invoice(
+        taggun_data=taggun_data,
+        odoo_provider=odoo_provider,
+        product_ids=product_ids,
+        partner_id=partner_id,
+    )

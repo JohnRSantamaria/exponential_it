@@ -50,7 +50,7 @@ class AccountingProvider(ABC):
             "create_address() no está implementado para este proveedor"
         )
 
-    async def get_tax_id(self, payload):
+    async def create_product(self, payload):
         raise NotImplementedError(
-            "get_tax_id() no está implementado para este proveedor"
+            "create_product() no está implementado para este proveedor"
         )

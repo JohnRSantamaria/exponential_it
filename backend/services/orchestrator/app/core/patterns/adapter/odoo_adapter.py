@@ -4,7 +4,12 @@ from app.core.client_provider import ProviderConfig
 from app.core.patterns.adapter.account_provider import AccountingProvider
 from app.services.odoo.interceptor import error_interceptor
 from app.core.logging import logger
-from exponential_core.odoo.schemas import SupplierCreateSchema, AddressCreateSchema
+from exponential_core.odoo.schemas import (
+    SupplierCreateSchema,
+    AddressCreateSchema,
+    ProductCreateSchema,
+    InvoiceCreateSchema,
+)
 
 
 class OdooAdapter(AccountingProvider):
@@ -51,10 +56,8 @@ class OdooAdapter(AccountingProvider):
         return response.json()
 
     @error_interceptor
-    async def get_tax_id(self, payload: dict):
-
-        tax_percentage = 21.0
-        url = f"{self.path}/get-tax-id?amount={tax_percentage}"
+    async def get_all_taxes(self):
+        url = f"{self.path}/get-all-tax-id"
         logger.debug(url)
 
         headers = {"x-client-vat": self.company_vat}
@@ -65,14 +68,37 @@ class OdooAdapter(AccountingProvider):
         return response.json()
 
     @error_interceptor
-    async def get_all_taxes(self):
-
-        url = f"{self.path}/get-all-tax-id"
+    async def create_product(self, payload: ProductCreateSchema):
+        url = f"{self.path}/create-product"
         logger.debug(url)
 
         headers = {"x-client-vat": self.company_vat}
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(url=url, headers=headers)
-
+            response = await client.post(
+                url=url,
+                headers=headers,
+                json=payload.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                ),
+            )
         return response.json()
+
+    @error_interceptor
+    async def create_bill(self, payload: InvoiceCreateSchema):
+        url = f"{self.path}/register-invoice"
+        logger.debug(url)
+
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            reponse = await client.post(
+                url=url,
+                headers=headers,
+                json=payload.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                ),
+            )
+        return reponse.json()
