@@ -3,8 +3,8 @@ import urllib.parse
 
 from fastapi import APIRouter, Query, Request
 
-from app.core.settings import settings
 from app.services.zoho.client import zoho_get
+from app.services.zoho.secrets import SecretsServiceZoho
 from app.services.zoho.tokens import (
     load_organization_id,
     save_organization_id,
@@ -15,36 +15,57 @@ router = APIRouter(prefix="/auth", tags=["authentication"])
 
 
 @router.get("/", summary="llamar primero")
-def oauth_start():
+async def oauth_start(
+    company_vat: str = Query(
+        default="B70845755",
+        description="VAT o NIT de la empresa para obtener los secretos de Zoho",
+    )
+):
+
+    if not company_vat:
+        return {"error": "company_vat not found."}
+
+    secrets_service = await SecretsServiceZoho(company_vat=company_vat).load()
+
     params = {
-        "client_id": settings.ZOHO_CLIENT_ID,
+        "client_id": secrets_service.get_client_id(),
         "response_type": "code",
         "scope": "ZohoBooks.fullaccess.all",
-        "redirect_uri": settings.ZOHO_REDIRECT_URI,
+        "redirect_uri": secrets_service.get_redirect_uri(),
         "access_type": "offline",
         "prompt": "consent",
     }
-    url = f"{settings.ZOHO_BASE_URL}/oauth/v2/auth?" + urllib.parse.urlencode(params)
+
+    base_url = secrets_service.get_base_url()
+    url = f"{base_url}/oauth/v2/auth?" + urllib.parse.urlencode(params)
     return {"auth_url": url}
 
 
 @router.get("/callback", include_in_schema=False)
 async def oauth_callback(request: Request):
     code = request.query_params.get("code")
+    company_vat = request.query_params.get("company_vat")
+
+    secrets_service = await SecretsServiceZoho(company_vat=company_vat).load()
+
     if not code:
         return {"error": "Athorization code not found."}
+    if not company_vat:
+        return {"error": "company_vat not found."}
 
     data = {
         "grant_type": "authorization_code",
-        "client_id": settings.ZOHO_CLIENT_ID,
-        "client_secret": settings.ZOHO_CLIENT_SECRET,
-        "redirect_uri": settings.ZOHO_REDIRECT_URI,
+        "client_id": secrets_service.get_client_id(),
+        "client_secret": secrets_service.get_client_secret(),
+        "redirect_uri": secrets_service.get_redirect_uri(),
         "code": code,
     }
 
     async with httpx.AsyncClient() as client:
+        base_url = secrets_service.get_base_url()
         response = await client.post(
-            f"{settings.ZOHO_BASE_URL}/oauth/v2/token", data=data
+            f"{base_url}/oauth/v2/token",
+            data=data,
         )
 
     tokens = response.json()

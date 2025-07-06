@@ -13,7 +13,6 @@ services:
             - '8000:8000'
         networks:
             - app_net
-
 networks:
     app_net:
         external: true

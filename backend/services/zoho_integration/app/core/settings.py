@@ -25,11 +25,14 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str
 
-    ZOHO_CLIENT_ID: str
-    ZOHO_CLIENT_SECRET: str
-    ZOHO_BASE_URL: str
-    ZOHO_API_DOMAIN: str
-    ZOHO_REDIRECT_URI: str
+    HTTP_TIMEOUT_CONNECT: float = 10.0
+    HTTP_TIMEOUT_READ: float = 60.0
+    HTTP_TIMEOUT_WRITE: float = 10.0
+    HTTP_TIMEOUT_POOL: float = 5.0
+
+    # Zoho URL's
+    ZOHO_API_DOMAIN: str = "https://www.zohoapis.com"
+    ZOHO_BASE_URL: str = "https://accounts.zoho.com"
 
     # Token routes
     TOKEN_FILE: Path = Field(default=BASE_DIR / "app" / "token" / "zoho_token.json")

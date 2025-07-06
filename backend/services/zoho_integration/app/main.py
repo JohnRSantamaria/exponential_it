@@ -14,7 +14,6 @@ app = FastAPI(
     root_path="/ocr",
     lifespan=lifespan,
 )
-# Rutas
 
 # Middleware global para manejar errores inesperados
 app.add_middleware(GlobalExceptionMiddleware)
