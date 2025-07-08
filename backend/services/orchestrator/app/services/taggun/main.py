@@ -42,11 +42,12 @@ async def handle_invoice_scan(
             file=file,
             file_content=file_content,
             taggun_data=taggun_data,
+            company_vat=company_vat,
         )
     else:
         await odoo_process(
-            taggun_data,
-            company_vat,
+            taggun_data=taggun_data,
+            company_vat=company_vat,
         )
 
     logger.debug("Registro de cuenta contable completado")

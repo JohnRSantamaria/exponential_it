@@ -137,7 +137,7 @@ async def classification_for_account(
     zoho_provider: ZohoAdapter, taggun_data: TaggunExtractedInvoice
 ) -> Optional[AccountCategory]:
     """Clasifica la factura usando OpenAI para obtener el account_id más adecuado."""
-    config = ProviderConfig(server_url=settings.URL_OPENAPI, api_prefix="/api")
+    config = ProviderConfig(server_url=settings.URL_OPENAPI)
     openai_service = OpenAIService(config=config)
 
     logger.debug("Inicia el proceso de clasificación")

@@ -12,6 +12,7 @@ from app.services.zoho.schemas.create_contact import CreateZohoContactRequest
 class ZohoAdapter(AccountingProvider):
     def __init__(self, config: ProviderConfig):
         self.path = config.path
+        self.company_vat = config.company_vat
         self.timeout = httpx.Timeout(
             connect=settings.HTTP_TIMEOUT_CONNECT,
             read=settings.HTTP_TIMEOUT_READ,
@@ -24,8 +25,14 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/contact"
         logger.debug(url)
 
+        headers = {"x-client-vat": self.company_vat}
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(url, json=payload.model_dump(mode="json"))
+            response = await client.post(
+                url=url,
+                json=payload.model_dump(mode="json"),
+                headers=headers,
+            )
 
         return response.json()
 
@@ -34,8 +41,14 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/bill"
         logger.info(url)
 
+        headers = {"x-client-vat": self.company_vat}
+
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(url, json=payload.model_dump(mode="json"))
+            response = await client.post(
+                url=url,
+                headers=headers,
+                json=payload.model_dump(mode="json"),
+            )
 
         return response.json()
 
@@ -44,8 +57,13 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/contacts"
         logger.debug(f"Obteniendo contactos : {url}")
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                url=url,
+                headers=headers,
+            )
         return response.json()
 
     @error_interceptor
@@ -53,8 +71,13 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/bills"
         logger.info(url)
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                url=url,
+                headers=headers,
+            )
         return response.json()
 
     @error_interceptor
@@ -63,10 +86,16 @@ class ZohoAdapter(AccountingProvider):
     ) -> dict:
         url = f"{self.path}/bill/{bill_id}/attachment"
         logger.info(url)
+
+        headers = {"x-client-vat": self.company_vat}
         files = {"file": (file.filename, file_content, file.content_type)}
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, files=files)
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                url=url,
+                headers=headers,
+                files=files,
+            )
         return response.json()
 
     @error_interceptor
@@ -74,8 +103,13 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/chart-of-accounts"
         logger.info(url)
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                url=url,
+                headers=headers,
+            )
         return response.json()
 
     @error_interceptor
@@ -83,6 +117,11 @@ class ZohoAdapter(AccountingProvider):
         url = f"{self.path}/taxes"
         logger.info(url)
 
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url)
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                url=url,
+                headers=headers,
+            )
         return response.json()

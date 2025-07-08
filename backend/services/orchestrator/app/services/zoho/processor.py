@@ -10,8 +10,12 @@ async def zoho_process(
     file: UploadFile,
     file_content: bytes,
     taggun_data: TaggunExtractedInvoice,
+    company_vat: str,
 ):
-    zoho_provider = get_provider(service=ServicesEnum.ZOHO)
+    zoho_provider = get_provider(
+        service=ServicesEnum.ZOHO,
+        company_vat=company_vat,
+    )
 
     partner_id = await get_or_create_contact_id(
         zoho_provider=zoho_provider,

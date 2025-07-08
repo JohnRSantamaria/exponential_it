@@ -23,7 +23,7 @@ async def odoo_process(
         service=ServicesEnum.ODOO,
         company_vat=company_vat,
     )
-    config = ProviderConfig(server_url=settings.URL_OPENAPI, api_prefix="/api")
+    config = ProviderConfig(server_url=settings.URL_OPENAPI)
     openai_service = OpenAIService(config=config)
 
     logger.debug("Proceso iniciado en ODOO")

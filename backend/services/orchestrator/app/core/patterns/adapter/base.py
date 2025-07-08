@@ -7,10 +7,14 @@ from app.core.schemas.enums import ServicesEnum
 
 def get_provider(
     service: ServicesEnum,
-    company_vat: str | None = None,
+    company_vat: str,
 ) -> ZohoAdapter | OdooAdapter:
     if service == ServicesEnum.ZOHO:
-        config = ProviderConfig(server_url=settings.URL_ZOHO, api_prefix="/books")
+        config = ProviderConfig(
+            server_url=settings.URL_ZOHO,
+            api_prefix="/books",
+            company_vat=company_vat,
+        )
         return ZohoAdapter(config=config)
     elif service == ServicesEnum.ODOO:
         config = ProviderConfig(
