@@ -1,176 +1,295 @@
-
-REGISTRY = johnsantamaria
+NETWORK = app_net
 STACK_NAME = exponentialit_stack
-COMPOSE_FILE = docker-compose.yml
-VERSION ?= 1.0.0
+COMPOSE_FILE = docker-stack.yml
 
-build-admin:
-	docker build -t admin_django:$(VERSION) ./backend/django
+# ------------------------------------------------------------------------------
+# Inicialización y redes
+# ------------------------------------------------------------------------------
 
-build-ocr:
-	docker build -t ocr_integration:$(VERSION) ./backend/services/ocr_integration
+swarm-init:
+	@echo "🔧 Inicializando Docker Swarm..."
+	@docker swarm init
 
-build-zoho:
-	docker build -t zoho_integration:$(VERSION) ./backend/services/zoho_integration
+networks:
+	@echo "🌐 Listando redes de Docker..."
+	@docker network ls
 
-build-openai:
-	docker build -t openai_integration:$(VERSION) ./backend/services/openai_integration
+create-network:
+	@echo "🔍 Verificando si la red '$(NETWORK)' existe..."
+	@if docker network inspect $(NETWORK) > /dev/null 2>&1; then \
+		echo "✅ Red '$(NETWORK)' ya existe."; \
+	else \
+		echo "🌐 Red '$(NETWORK)' no existe. Creándola..."; \
+		docker network create --driver overlay $(NETWORK); \
+	fi
 
-build-nginx:
-	docker build -t nginx:$(VERSION) ./nginx
+inspect: 
+	@echo "🌐 Verificando red overlay llamada '$(NETWORK)'..."
+	@docker network inspect '$(NETWORK)'
 
-build:
-	@echo "🛠️  Construyendo imágenes con la versión $(VERSION)..."
-	make build-admin VERSION=$(VERSION)
-	make build-ocr VERSION=$(VERSION)
-	make build-zoho VERSION=$(VERSION)
-	make build-openai VERSION=$(VERSION)
-	make build-nginx VERSION=$(VERSION)
+# ------------------------------------------------------------------------------
+# Despliegue
+# ------------------------------------------------------------------------------
 
-push-admin:
-	docker tag admin_django:$(VERSION) $(REGISTRY)/admin_django:$(VERSION)
-	docker push $(REGISTRY)/admin_django:$(VERSION)
-
-push-ocr:
-	docker tag ocr_integration:$(VERSION) $(REGISTRY)/ocr_integration:$(VERSION)
-	docker push $(REGISTRY)/ocr_integration:$(VERSION)
-
-push-zoho:
-	docker tag zoho_integration:$(VERSION) $(REGISTRY)/zoho_integration:$(VERSION)
-	docker push $(REGISTRY)/zoho_integration:$(VERSION)
-
-push-openai:
-	docker tag openai_integration:$(VERSION) $(REGISTRY)/openai_integration:$(VERSION)
-	docker push $(REGISTRY)/openai_integration:$(VERSION)
-
-push-nginx:
-	docker tag nginx:$(VERSION) $(REGISTRY)/nginx:$(VERSION)
-	docker push $(REGISTRY)/nginx:$(VERSION)
-
-push:
-	@echo "🚀 Subiendo imágenes con la versión $(VERSION)..."
-	make push-admin VERSION=$(VERSION)
-	make push-ocr VERSION=$(VERSION)
-	make push-zoho VERSION=$(VERSION)
-	make push-openai VERSION=$(VERSION)
-	make push-nginx VERSION=$(VERSION)
-
-deploy:
-	docker stack deploy -c $(COMPOSE_FILE) $(STACK_NAME)
-
-deploy-check:
+deploy:	
 	@echo "🚀 Desplegando el stack '$(STACK_NAME)' con espera..."
-	docker stack deploy --detach=false -c $(COMPOSE_FILE) $(STACK_NAME)
-	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
+	@docker stack deploy --detach=false -c $(COMPOSE_FILE) $(STACK_NAME)
+	@echo "🔍 Servicios activos del stack '$(STACK_NAME)':"
+	@docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
 
-rm:
-	docker stack rm $(STACK_NAME)
-
-ps:
-	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
-
-logs-admin:
-	docker service logs $(STACK_NAME)_admin-django
-
-logs-ocr:
-	docker service logs $(STACK_NAME)_ocr-integration
-
-logs-zoho:
-	docker service logs $(STACK_NAME)_zoho-integration
-
-logs-openai:
-	docker service logs $(STACK_NAME)_openai-integration
-
-logs-nginx:
-	docker service logs $(STACK_NAME)_nginx
-
-logs: logs-admin logs-ocr logs-zoho logs-openai logs-nginx
+deploy-safe: create-network deploy
 
 status:
-	docker stack ls
-	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
-	docker ps -a
-	docker network ls
+	@echo "📦 Estado general del stack '$(STACK_NAME)':"
+	@echo ""
 
-check-env:
-	@if [ ! -f ./backend/services/ocr_integration/.env.prod ]; then \
-		echo "❌ ERROR: No se encontró .env.prod"; exit 1; \
-	fi
-	@if ! grep -q "^DATABASE_URL=" ./backend/services/ocr_integration/.env.prod; then \
-		echo "❌ ERROR: Falta DATABASE_URL"; exit 1; \
-	fi
+	@echo "🔸 Servicios:"
+	@docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME) --format \
+		"{{.Name}} {{.Replicas}}" | while read name replicas; do \
+			desired=$$(echo $$replicas | cut -d'/' -f2); \
+			current=$$(echo $$replicas | cut -d'/' -f1); \
+			if [ "$$desired" = "$$current" ]; then \
+				printf "✅ %-45s %s\n" "$$name" "OK ($$replicas)"; \
+			else \
+				printf "❌ %-45s %s\n" "$$name" "FALLA ($$replicas) - Ejecuta: make reload-$${name##*-}"; \
+			fi; \
+		done
+
+	@echo ""
+	@echo "🔸 Contenedores del stack:"
+	@docker ps -a --filter "label=com.docker.stack.namespace=$(STACK_NAME)" \
+		--format "  {{.Status}} \t {{.Names}}" | sort
+
+ps:
+	@echo "📋 Listando servicios activos del stack '$(STACK_NAME)'..."
+	@docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
+
+# ------------------------------------------------------------------------------
+# Eliminación y limpieza
+# ------------------------------------------------------------------------------
+
+rm:
+	@echo "🗑️ Eliminando el stack '$(STACK_NAME)'..."
+	@docker stack rm $(STACK_NAME)
 
 clean:
-	docker ps -aq | xargs docker rm -f || true
+	@echo "🧹 Eliminando contenedores detenidos..."
+	@docker ps -aq | xargs docker rm -f || true
 
 prune:
-	docker system prune -af --volumes
+	@echo "🔥 Eliminando recursos no utilizados (volúmenes incluidos)..."
+	@docker system prune -af --volumes
 
 up: build deploy
 
-down: rm clean
+down: rm clean prune
+
+# ------------------------------------------------------------------------------
+# Logs
+# ------------------------------------------------------------------------------
+
+logs-admin:
+	@echo "📄 Mostrando logs del servicio 'admin-django'..."
+	@docker service logs $(STACK_NAME)_admin-django
+
+logs-orchestrator:
+	@echo "📄 Mostrando logs del servicio 'orchestrator'..."
+	@docker service logs $(STACK_NAME)_orchestrator
+
+logs-zoho:
+	@echo "📄 Mostrando logs del servicio 'zoho-integration'..."
+	@docker service logs $(STACK_NAME)_zoho-integration
+
+logs-odoo:
+	@echo "📄 Mostrando logs del servicio 'odoo-integration'..."
+	@docker service logs $(STACK_NAME)_odoo-integration
+
+logs-openai:
+	@echo "📄 Mostrando logs del servicio 'openai-integration'..."
+	@docker service logs $(STACK_NAME)_openai-integration
+
+logs-nginx:
+	@echo "📄 Mostrando logs del servicio 'nginx'..."
+	@docker service logs $(STACK_NAME)_nginx
+
+logs: logs-admin logs-orchestrator logs-zoho logs-openai logs-odoo logs-nginx
+
+# Logs en tiempo real
+
+logs-admin-follow:
+	@echo "🔄 Siguiendo logs en tiempo real de 'admin-django'..."
+	@docker service logs -f $(STACK_NAME)_admin-django
+
+logs-orchestrator-follow:
+	@echo "🔄 Siguiendo logs en tiempo real de 'orchestrator'..."
+	@docker service logs -f $(STACK_NAME)_orchestrator
+
+logs-zoho-follow:
+	@echo "🔄 Siguiendo logs en tiempo real de 'zoho-integration'..."
+	@docker service logs -f $(STACK_NAME)_zoho-integration
+
+logs-odoo-follow:
+	@echo "🔄 Siguiendo logs en tiempo real de 'odoo-integration'..."
+	@docker service logs -f $(STACK_NAME)_odoo-integration
+
+logs-openai-follow:
+	@echo "🔄 Siguiendo logs en tiempo real de 'openai-integration'..."
+	@docker service logs -f $(STACK_NAME)_openai-integration
+
+logs-nginx-follow:
+	@echo "🔄 Siguiendo logs en tiempo real de 'nginx'..."
+	@docker service logs -f $(STACK_NAME)_nginx
+
+logs-error-%:
+	@echo "📄 Mostrando logs del último contenedor con error para '$*'..."
+	@cid=$$(docker ps -a --filter "name=$(STACK_NAME)_$*" --filter "status=exited" -q | head -n 1); \
+	if [ -z "$$cid" ]; then \
+		echo "✅ No se encontraron contenedores con error para '$*'."; \
+	else \
+		docker logs $$cid; \
+	fi
+
+# ------------------------------------------------------------------------------
+# Reload de servicios
+# ------------------------------------------------------------------------------
 
 reload-admin:
-	docker service update --force $(STACK_NAME)_admin-django
+	@echo "♻️ Reiniciando servicio 'admin-django'..."
+	@docker service update --force $(STACK_NAME)_admin-django
 
-reload-ocr:
-	docker service update --force $(STACK_NAME)_ocr-integration
+reload-orchestrator:
+	@echo "♻️ Reiniciando servicio 'orchestrator'..."
+	@docker service update --force $(STACK_NAME)_orchestrator
 
 reload-zoho:
-	docker service update --force $(STACK_NAME)_zoho-integration
+	@echo "♻️ Reiniciando servicio 'zoho-integration'..."
+	@docker service update --force $(STACK_NAME)_zoho-integration
+
+reload-odoo:
+	@echo "♻️ Reiniciando servicio 'odoo-integration'..."
+	@docker service update --force $(STACK_NAME)_odoo-integration
 
 reload-openai:
-	docker service update --force $(STACK_NAME)_openai-integration
+	@echo "♻️ Reiniciando servicio 'openai-integration'..."
+	@docker service update --force $(STACK_NAME)_openai-integration
 
 reload-nginx:
-	docker service update --force $(STACK_NAME)_nginx
+	@echo "♻️ Reiniciando servicio 'nginx'..."
+	@docker service update --force $(STACK_NAME)_nginx
 
-reload: reload-admin reload-ocr reload-zoho reload-openai reload-nginx
+reload: reload-admin reload-orchestrator reload-zoho reload-odoo reload-openai reload-nginx
+
+# ------------------------------------------------------------------------------
+# Shell en contenedores
+# ------------------------------------------------------------------------------
 
 shell-admin:
-	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_admin-django" --format "{{.ID}}") sh
+	@echo "🔧 Entrando al contenedor 'admin-django'..."
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_admin-django" --format "{{.ID}}") sh
 
-shell-ocr:
-	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_ocr-integration" --format "{{.ID}}") sh
+shell-orchestrator:
+	@echo "🔧 Entrando al contenedor 'orchestrator'..."
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_orchestrator" --format "{{.ID}}") sh
 
 shell-zoho:
-	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_zoho-integration" --format "{{.ID}}") sh
+	@echo "🔧 Entrando al contenedor 'zoho-integration'..."
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_zoho-integration" --format "{{.ID}}") sh
+
+shell-odoo:
+	@echo "🔧 Entrando al contenedor 'odoo-integration'..."
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_odoo-integration" --format "{{.ID}}") sh
 
 shell-openai:
-	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_openai-integration" --format "{{.ID}}") sh
+	@echo "🔧 Entrando al contenedor 'openai-integration'..."
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_openai-integration" --format "{{.ID}}") sh
 
 shell-nginx:
-	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") sh
+	@echo "🔧 Entrando al contenedor 'nginx'..."
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") sh
 
-prod-deploy:
-	docker stack deploy -c docker-stack.yml $(STACK_NAME)
+# ------------------------------------------------------------------------------
+# Subir imagen
+# ------------------------------------------------------------------------------
 
-prod-rm:
-	docker stack rm $(STACK_NAME)
+build-orchestrator: 
+	docker build -t exponentialit/orchestrator:v1.1.0-beta ./backend/services/orchestrator
 
-prod-status:
-	docker stack ls
-	docker service ls --filter label=com.docker.stack.namespace=$(STACK_NAME)
-	docker ps -a
+push-orchestrator: 
+	docker push exponentialit/orchestrator:v1.1.0-beta 
 
-prod-logs-nginx:
-	docker service logs -f $(STACK_NAME)_nginx
+build-odoo: 
+	docker build -t exponentialit/odoo-integration:v1.1.0-beta ./backend/services/odoo_integration
 
-prod-reload-nginx:
-	docker service update --force $(STACK_NAME)_nginx
+push-odoo: 
+	docker push exponentialit/odoo-integration:v1.1.0-beta 
 
-prod-shell-nginx:
-	docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") sh
+build-nginx: 
+	docker build -t exponentialit/nginx:v1.1.0-beta ./nginx
 
-prod-info: prod-status
+push-nginx:
+	docker push exponentialit/nginx:v1.1.0-beta
+
+build-admin: 
+	docker build -t exponentialit/admin-django:v1.1.0-beta ./backend/django
+
+push-admin:
+	docker push exponentialit/admin-django:v1.1.0-beta
+
+build-zoho: 
+	docker build -t exponentialit/zoho-integration:v1.1.0-beta ./backend/services/zoho_integration
+
+push-zoho: 
+	docker push exponentialit/zoho-integration:v1.1.0-beta
+
+build-openai: 
+	docker build -t exponentialit/openai-integration:v1.1.0-beta ./backend/services/openai_integration
+
+push-openai: 
+	docker push exponentialit/openai-integration:v1.1.0-beta
+
+build: build-admin build-orchestrator build-odoo build-zoho build-openai build-nginx
+
+push: push-admin push-orchestrator push-odoo push-zoho push-openai push-nginx
+
+# ------------------------------------------------------------------------------
+# ver envs en produccion 
+# ------------------------------------------------------------------------------
+
+env-admin:
+	@echo "🌍 Variables de entorno en 'admin-django':"
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_admin_django" --format "{{.ID}}") printenv
+
+env-orchestrator:
+	@echo "🌍 Variables de entorno en 'orchestrator':"
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_orchestrator" --format "{{.ID}}") printenv
+
+env-zoho:
+	@echo "🌍 Variables de entorno en 'zoho-integration':"
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_zoho_integration" --format "{{.ID}}") printenv
+
+env-odoo:
+	@echo "🌍 Variables de entorno en 'odoo-integration':"
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_odoo_integration" --format "{{.ID}}") printenv
+
+env-openai:
+	@echo "🌍 Variables de entorno en 'openai-integration':"
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_openai_integration" --format "{{.ID}}") printenv
+
+env-nginx:
+	@echo "🌍 Variables de entorno en 'nginx':"
+	@docker exec -it $$(docker ps --filter "name=$(STACK_NAME)_nginx" --format "{{.ID}}") printenv
+
+envs: env-admin env-orchestrator env-zoho env-openai env-odoo env-nginx
+
+# ------------------------------------------------------------------------------
+# Reglas PHONY: siempre se ejecutan, aunque existan archivos con ese nombre
+# ------------------------------------------------------------------------------
 
 .PHONY: \
-  build build-admin build-ocr build-zoho build-openai build-nginx \
-  push push-admin push-ocr push-zoho push-openai push-nginx \
-  deploy deploy-check rm ps \
-  logs logs-admin logs-ocr logs-zoho logs-openai logs-nginx \
-  status check-env clean prune \
+  swarm-init networks create-network \
+  build deploy deploy-check status ps rm clean prune \
   up down \
-  reload reload-admin reload-ocr reload-zoho reload-openai reload-nginx \
-  shell-admin shell-ocr shell-zoho shell-openai shell-nginx \
-  prod-deploy prod-rm prod-status prod-logs-nginx prod-reload-nginx prod-shell-nginx prod-info
+  logs logs-admin logs-orchestrator logs-zoho logs-openai logs-odoo logs-nginx \
+  logs-admin-follow logs-orchestrator-follow logs-zoho-follow logs-openai-follow logs-odoo-follow logs-nginx-follow logs-follow \
+  reload reload-admin reload-orchestrator reload-zoho reload-openai reload-odoo reload-nginx \
+  shell-admin shell-orchestrator shell-zoho shell-openai shell-odoo shell-nginx

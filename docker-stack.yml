@@ -1,5 +1,6 @@
 services:
-  admin_django:
+
+  admin-django:    
     image: exponentialit/admin_django:v1.1.0-beta
     secrets: 
       - regcred
@@ -15,6 +16,7 @@ services:
         condition: on-failure
       placement:
         constraints: [node.role == manager]
+
   orchestrator: 
     image: exponentialit/orchestrator:v1.1.0-beta
     env_file:
@@ -26,43 +28,59 @@ services:
     deploy:
       replicas: 1
       restart_policy:
-        condition: on-failure   
-  # openai_integration: 
-  #   image: exponentialit/openai_integration:v1.0.0-beta   
-  #   env_file:
-  #     - ./backend/services/openai_integration/.env.prod
-  #   volumes:
-  #     - ./backend/services/openai_integration:/app
-  #   networks:
-  #     - app_net
-  #   deploy:
-  #     replicas: 1
-  #     restart_policy:
-  #       condition: on-failure       
-  # zoho_integration: 
-  #   image: exponentialit/zoho_integration:v1.0.0-beta   
-  #   env_file:
-  #     - ./backend/services/zoho_integration/.env.prod
-  #   volumes:
-  #     - ./backend/services/zoho_integration:/app
-  #   networks:
-  #     - app_net
-  #   deploy:
-  #     replicas: 1
-  #     restart_policy:
-  #       condition: on-failure                 
-  # nginx:
-  #   image: exponentialit/nginx:v1.0.0-beta
-  #   ports:
-  #     - "80:80"
-  #   volumes:
-  #     - ../backend/django/config/staticfiles:/static:ro
-  #   networks:
-  #     - app_net
-  #   deploy:
-  #     replicas: 1
-  #     restart_policy:
-  #       condition: on-failure
+        condition: on-failure      
+
+  zoho-integration: 
+    image: exponentialit/zoho_integration:v1.1.0-beta   
+    env_file:
+      - ./backend/services/zoho_integration/.env.prod
+    volumes:
+      - ./backend/services/zoho_integration:/app
+    networks:
+      - app_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure                 
+
+  openai-integration: 
+    image: exponentialit/openai_integration:v1.1.0-beta   
+    env_file:
+      - ./backend/services/openai_integration/.env.prod
+    volumes:
+      - ./backend/services/openai_integration:/app
+    networks:
+      - app_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure    
+
+  odoo-integration: 
+    image: exponentialit/odoo_integration:v1.1.0-beta   
+    env_file:
+      - ./backend/services/odoo_integration/.env.prod
+    volumes:
+      - ./backend/services/odoo_integration:/app
+    networks:
+      - app_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure    
+
+  nginx:
+    image: exponentialit/nginx:v1.1.0-beta
+    ports:
+      - "80:80"
+    volumes:
+      - ../backend/django/config/staticfiles:/static:ro
+    networks:
+      - app_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
       
 networks:
   app_net:

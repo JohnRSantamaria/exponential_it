@@ -10,7 +10,7 @@ def get_provider(
     company_vat: str | None = None,
 ) -> ZohoAdapter | OdooAdapter:
     if service == ServicesEnum.ZOHO:
-        config = ProviderConfig(server_url=settings.URL_ZOHO, api_prefix="/api/books")
+        config = ProviderConfig(server_url=settings.URL_ZOHO, api_prefix="/books")
         return ZohoAdapter(config=config)
     elif service == ServicesEnum.ODOO:
         config = ProviderConfig(

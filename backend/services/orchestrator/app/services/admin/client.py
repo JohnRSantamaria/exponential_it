@@ -1,7 +1,8 @@
 import httpx
+from app.core.client_provider import ProviderConfig
 from app.core.settings import settings
+from app.core.logging import logger
 
-from ...core.client_provider import ProviderConfig
 from .schemas import IdentifyAccountsResponse, ServiceCredentialsResponse
 from exponential_core.exceptions import CustomAppException
 
@@ -9,6 +10,7 @@ from exponential_core.exceptions import CustomAppException
 class AdminService:
     def __init__(self, config: ProviderConfig):
         self.path = config.path
+        logger
         self.timeout = httpx.Timeout(
             connect=settings.HTTP_TIMEOUT_CONNECT,
             read=settings.HTTP_TIMEOUT_READ,
@@ -18,7 +20,7 @@ class AdminService:
 
     async def register_scan(self, user_id: int, account_id: int) -> dict:
         url = f"{self.path}/auth/users/register-scan/"
-
+        logger.debug(f"Registrando escaneo en: {url}")
         data = {"user_id": user_id, "account_id": account_id}
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -45,6 +47,7 @@ class AdminService:
         url = f"{self.path}/services/{service_id}/credentials/"
         if search:
             url += f"?search={search}"
+            logger.debug(f"Obteniendo credenciales: {url}")
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -64,6 +67,7 @@ class AdminService:
 
     async def identify_accounts(self, email: str) -> IdentifyAccountsResponse:
         url = f"{self.path}/auth/users/identify/"
+        logger.debug(f"Autenticando email en: {url}")
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:

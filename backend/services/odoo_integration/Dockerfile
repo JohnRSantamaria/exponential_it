@@ -10,8 +10,9 @@ RUN apk add --no-cache \
     musl-dev \
     libffi-dev \
     libc-dev \
-    git  
-
+    git \
+    openssl \
+    && apk upgrade --no-cache openssl
 
 # Actualiza pip y herramientas de build
 RUN python -m pip install --upgrade pip setuptools wheel

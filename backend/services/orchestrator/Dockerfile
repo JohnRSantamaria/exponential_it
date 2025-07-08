@@ -4,13 +4,15 @@ FROM python:3.13-alpine
 WORKDIR /app
 
 # Instala compiladores y librerías necesarias para paquetes con C extensions
-RUN apk add --no-cache \
+RUN apk update && apk add --no-cache \
     build-base \
     gcc \
     musl-dev \
     libffi-dev \
     libc-dev \
-    git  
+    git \
+    openssl \
+    && apk upgrade --no-cache openssl
 
 
 # Actualiza pip y herramientas de build

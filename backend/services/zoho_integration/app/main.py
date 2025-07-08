@@ -11,7 +11,7 @@ from exponential_core.exceptions import (
 app = FastAPI(
     title="OCR API",
     version="1.0",
-    root_path="/ocr",
+    root_path="/zoho",
     lifespan=lifespan,
 )
 
@@ -19,8 +19,8 @@ app = FastAPI(
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Registrar rutas
-app.include_router(auth.router, prefix="/api")
-app.include_router(books.router, prefix="/api")
+app.include_router(auth.router)
+app.include_router(books.router)
 
 
 # Registrar todos los exception handlers de forma automática

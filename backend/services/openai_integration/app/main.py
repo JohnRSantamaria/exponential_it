@@ -18,15 +18,11 @@ app = FastAPI(
 # Middleware global para manejar excepciones
 app.add_middleware(GlobalExceptionMiddleware)
 
-# Rutas
-app.include_router(entry.router, prefix="/api", tags=["api"])
-
-
 # Middleware global para manejar errores inesperados
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Registrar rutas
-app.include_router(entry.router, prefix="/api", tags=["api"])
+app.include_router(entry.router)
 
 # Registrar todos los exception handlers de forma automática
 setup_exception_handlers(app)

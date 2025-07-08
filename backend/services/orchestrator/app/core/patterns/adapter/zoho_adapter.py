@@ -42,7 +42,7 @@ class ZohoAdapter(AccountingProvider):
     @error_interceptor
     async def get_all_contacts(self):
         url = f"{self.path}/contacts"
-        logger.info(url)
+        logger.debug(f"Obteniendo contactos : {url}")
 
         async with httpx.AsyncClient() as client:
             response = await client.get(url)

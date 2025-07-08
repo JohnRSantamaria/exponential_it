@@ -10,7 +10,8 @@ ENVIRONMENT: str = "production"
 LOG_LEVEL: str = "ERROR"
 
 
-HOST = config("HOST", default="15.188.6.72,15.236.59.110", cast=Csv())
+HOST = config("HOST", default="*", cast=Csv())
+print(f"HOST : {HOST}")
 
 ALLOWED_HOSTS = HOST
 
