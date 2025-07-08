@@ -1,6 +1,8 @@
 import httpx
 from exponential_core.exceptions.types import OdooException
 from exponential_core.logger import get_logger
+from app.core.settings import settings
+
 
 logger = get_logger()
 
@@ -13,6 +15,12 @@ class AsyncOdooClient:
         self.api_key = api_key
         self.jsonrpc_url = f"{url}/jsonrpc"
         self.uid = None
+        self.timeout = httpx.Timeout(
+            connect=settings.HTTP_TIMEOUT_CONNECT,
+            read=settings.HTTP_TIMEOUT_READ,
+            write=settings.HTTP_TIMEOUT_WRITE,
+            pool=settings.HTTP_TIMEOUT_POOL,
+        )
 
     async def authenticate(self):
         payload = {
@@ -26,7 +34,7 @@ class AsyncOdooClient:
             "id": 1,
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(self.jsonrpc_url, json=payload)
 
         if response.status_code != 200 or "result" not in response.json():
@@ -63,7 +71,7 @@ class AsyncOdooClient:
             "id": 1,
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.post(self.jsonrpc_url, json=payload)
 
         try:
