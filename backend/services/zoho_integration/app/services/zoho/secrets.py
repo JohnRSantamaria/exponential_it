@@ -25,6 +25,18 @@ class SecretsServiceZoho:
     def get_organization_name(self) -> str:
         return self._get_required("ORGANIZATION_NAME")
 
+    def get_access_token(self) -> str:
+        return self._get_required("ACCESS_TOKEN")
+
+    def get_refresh_token(self) -> str:
+        return self._get_required("REFRESH_TOKEN")
+
+    def get_expires_at(self) -> str:
+        return self._get_required("EXPIRES_AT")
+
+    def get_organization_id(self) -> str:
+        return self._get_required("ORGANIZATION_ID")
+
     def _get_required(self, key: str) -> str:
         if self._secrets is None:
             raise RuntimeError(

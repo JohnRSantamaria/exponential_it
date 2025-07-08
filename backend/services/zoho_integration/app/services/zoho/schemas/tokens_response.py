@@ -1,10 +1,11 @@
+from typing import Optional
 from pydantic import BaseModel, Field
 from datetime import datetime, timezone, timedelta
 
 
 class ZohoTokenResponse(BaseModel):
     ACCESS_TOKEN: str = Field(..., alias="access_token")
-    REFRESH_TOKEN: str = Field(..., alias="refresh_token")
+    REFRESH_TOKEN: Optional[str] = Field(None, alias="refresh_token")
     EXPIRES_AT: str
 
     @classmethod
@@ -15,6 +16,6 @@ class ZohoTokenResponse(BaseModel):
 
         return cls(
             access_token=data["access_token"],
-            refresh_token=data["refresh_token"],
+            refresh_token=data.get("refresh_token"),
             EXPIRES_AT=expires_at,
         )

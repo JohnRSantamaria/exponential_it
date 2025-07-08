@@ -1,24 +1,28 @@
 import json
 import httpx
 
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from datetime import datetime, timedelta, timezone
 
 from app.core.settings import settings
+from app.services.zoho.schemas.tokens_response import ZohoTokenResponse
+from app.services.zoho.secrets import SecretsServiceZoho
 
 
-async def get_access_token():
+async def get_access_token(secrets_service: SecretsServiceZoho) -> str:
 
-    tokens = load_tokens()
+    access_token = secrets_service.get_access_token()
+    expires_at_str = secrets_service.get_expires_at()
+    refresh_token = secrets_service.get_refresh_token()
+    client_id = secrets_service.get_client_id()
+    client_secret = secrets_service.get_client_secret()
 
-    access_token = tokens.get("access_token", None)
-    expires_at_str = tokens.get("expires_at", None)
     if access_token and expires_at_str:
         expires_at = datetime.fromisoformat(expires_at_str)
         if datetime.now(timezone.utc) < (expires_at - timedelta(minutes=5)):
             return access_token
 
-    if "refresh_token" not in tokens:
+    if not refresh_token:
         raise HTTPException(
             status_code=403,
             detail="No refresh token available. Authenticate first. service: [Zoho_integraion]",
@@ -26,62 +30,20 @@ async def get_access_token():
 
     data = {
         "grant_type": "refresh_token",
-        "client_id": settings.ZOHO_CLIENT_ID,
-        "client_secret": settings.ZOHO_CLIENT_SECRET,
-        "refresh_token": tokens["refresh_token"],
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
     }
 
     async with httpx.AsyncClient() as client:
-        response = await client.post(
+        token_response = await client.post(
             f"{settings.ZOHO_BASE_URL}/oauth/v2/token", data=data
         )
 
-    new_tokens = response.json()
+    tokens_raw = token_response.json()
+    tokens = ZohoTokenResponse.from_response(tokens_raw)
 
-    if "access_token" not in new_tokens:
-        raise HTTPException(
-            status_code=403, detail=f"Token refresh failed: {new_tokens}"
-        )
+    raw_data = tokens.model_dump(mode="json", exclude_none=True)
+    await secrets_service.update_tokens_aws(tokens=raw_data)
 
-    new_tokens["refresh_token"] = tokens["refresh_token"]
-
-    save_tokens_with_expiry(new_tokens)
-
-    return new_tokens["access_token"]
-
-
-def save_tokens_with_expiry(tokens: dict):
-    expires_in = tokens.get("expires_in")
-    settings.TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    if expires_in:
-        expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-        tokens["expires_at"] = expires_at.isoformat()
-    save_tokens(tokens)
-
-
-def save_tokens(data: dict):
-    settings.TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    with settings.TOKEN_FILE.open("w") as f:
-        json.dump(data, f)
-
-
-def save_organization_id(data: dict):
-    with settings.ORGANIZATION_FILE.open("w") as f:
-        json.dump(data, f)
-
-
-def load_tokens() -> dict:
-    if not settings.TOKEN_FILE.exists() or settings.TOKEN_FILE.stat().st_size == 0:
-        return {}
-    with settings.TOKEN_FILE.open("r") as f:
-        return json.load(f)
-
-
-def load_organization_id() -> dict:
-    if (
-        not settings.ORGANIZATION_FILE.exists()
-        or settings.ORGANIZATION_FILE.stat().st_size == 0
-    ):
-        return {}
-    with settings.ORGANIZATION_FILE.open("r") as f:
-        return json.load(f)
+    return raw_data.get("ACCESS_TOKEN")
