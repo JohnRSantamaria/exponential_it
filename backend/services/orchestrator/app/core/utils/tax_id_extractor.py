@@ -3,6 +3,13 @@ import re
 from typing import List, Tuple
 from stdnum.eu import vat as vat_validator
 
+from app.core.exceptions import (
+    MultipleCompanyTaxIdMatchesError,
+    MultiplePartnerTaxIdsError,
+    PartnerTaxIdNotFoundError,
+    TaxIdNotFoundError,
+)
+
 
 class TaxIdExtractor:
     """
@@ -126,13 +133,9 @@ class TaxIdExtractor:
             return matches[0]
 
         if not matches:
-            raise ValueError(
-                "No se encontró ningún identificador fiscal válido que coincida con los registrados."
-            )
+            raise TaxIdNotFoundError()
 
-        raise ValueError(
-            "Se encontraron múltiples coincidencias de identificadores fiscales con los registrados."
-        )
+        raise MultipleCompanyTaxIdMatchesError(matches)
 
     def get_partner_tax_id_or_fail(self, company_vat: str) -> str:
         """
@@ -156,9 +159,6 @@ class TaxIdExtractor:
             if self._all_similar(candidates, threshold=self.similarity_threshold):
                 # Puedes retornar el más largo o más limpio
                 return max(candidates, key=len)
+            raise MultiplePartnerTaxIdsError(candidates)
 
-            raise ValueError(
-                "Se encontraron múltiples identificadores fiscales de proveedor diferentes."
-            )
-
-        raise ValueError("No se encontró identificador fiscal del proveedor.")
+        raise PartnerTaxIdNotFoundError()
