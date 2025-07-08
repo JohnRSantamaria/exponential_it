@@ -1,3 +1,4 @@
+from typing import Dict
 from exponential_core.secrets import SecretManager
 from exponential_core.exceptions import SecretsNotFound, MissingSecretKey
 
@@ -21,8 +22,8 @@ class SecretsServiceZoho:
     def get_client_secret(self) -> str:
         return self._get_required("ZOHO_CLIENT_SECRET")
 
-    def get_redirect_uri(self) -> str:
-        return self._get_required("ZOHO_REDIRECT_URI")
+    def get_organization_name(self) -> str:
+        return self._get_required("ORGANIZATION_NAME")
 
     def _get_required(self, key: str) -> str:
         if self._secrets is None:
@@ -33,3 +34,24 @@ class SecretsServiceZoho:
         if not value:
             raise MissingSecretKey(company_vat=self.company_vat, key=key)
         return value
+
+    async def create_tokens_aws(self, tokens: Dict[str, str]):
+        """
+        Crea un nuevo secreto desde cero,
+        #! Sobrescribe si ya existía.
+        """
+        if not isinstance(tokens, dict):
+            raise ValueError("Los tokens deben ser un diccionario válido.")
+
+        await self.secret_manager.create_secret(initial_data=tokens)
+        self._secrets = tokens
+
+    async def update_tokens_aws(self, tokens: Dict[str, str]):
+        """Actualiza (o agrega) claves dentro del secreto existente."""
+        if not isinstance(tokens, dict):
+            raise ValueError("Los tokens deben ser un diccionario válido.")
+
+        for key, value in tokens.items():
+            await self.secret_manager.set_secret(key, value)
+
+        self._secrets = await self.secret_manager.get_secret()

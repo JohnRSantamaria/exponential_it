@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     # Zoho URL's
     ZOHO_API_DOMAIN: str = "https://www.zohoapis.com"
     ZOHO_BASE_URL: str = "https://accounts.zoho.com"
+    ZOHO_REDIRECT_URI: str = "http://localhost:8002/zoho/auth/full-flow"
 
     # Token routes
     TOKEN_FILE: Path = Field(default=BASE_DIR / "app" / "token" / "zoho_token.json")

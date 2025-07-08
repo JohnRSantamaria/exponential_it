@@ -8,7 +8,7 @@ from app.core.settings import settings
 
 
 async def get_access_token():
-    
+
     tokens = load_tokens()
 
     access_token = tokens.get("access_token", None)
