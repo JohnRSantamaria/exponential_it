@@ -3,7 +3,7 @@ REGISTRY=exponentialit
 STACK_NAME = exponentialit_stack
 COMPOSE_FILE = docker-stack.yml
 NETWORK = app_net
-VERSION = v1.2.0
+VERSION = v1.2.0-beta
 
 # ------------------------------------------------------------------------------
 # Inicialización y redes
@@ -179,42 +179,60 @@ shell-nginx: ## Accede al contenedor nginx
 # ------------------------------------------------------------------------------
 build-admin: ## Construye imagen Docker de admin-django
 	docker build -t $(REGISTRY)/admin-django:$(VERSION) ./backend/django
+
+push-admin: ## Sube imagen Docker de admin-django
 	docker push $(REGISTRY)/admin-django:$(VERSION)
 
-# push-admin: ## Sube imagen Docker de admin-django
- 
+publish-admin: build-admin push-admin ## Construye y sube imagen Docker de admin-django
+	
+  
 build-orchestrator: ## Construye imagen Docker de orchestrator
-	docker build -t exponentialit/orchestrator:$(VERSION) ./backend/services/orchestrator
+	docker build -t $(REGISTRY)/orchestrator:$(VERSION) ./backend/services/orchestrator
 
 push-orchestrator: ## Sube imagen Docker de orchestrator
-	docker push exponentialit/orchestrator:$(VERSION)
+	docker push $(REGISTRY)/orchestrator:$(VERSION)
+
+publish-orchestrator: build-orchestrator push-orchestrator ## Construye y sube imagen Docker de orchestrator
+	
 
 build-odoo: ## Construye imagen Docker de odoo-integration
-	docker build -t exponentialit/odoo-integration:$(VERSION) ./backend/services/odoo_integration
+	docker build -t $(REGISTRY)/odoo-integration:$(VERSION) ./backend/services/odoo_integration
 
 push-odoo: ## Sube imagen Docker de odoo-integration
-	docker push exponentialit/odoo-integration:$(VERSION)
+	docker push $(REGISTRY)/odoo-integration:$(VERSION)
+
+publish-odoo: build-odoo push-odoo ## Construye y sube imagen Docker de orchestrator
+
 
 build-zoho: ## Construye imagen Docker de zoho-integration
-	docker build -t exponentialit/zoho-integration:$(VERSION) ./backend/services/zoho_integration
+	docker build -t $(REGISTRY)/zoho-integration:$(VERSION) ./backend/services/zoho_integration
 
 push-zoho: ## Sube imagen Docker de zoho-integration
-	docker push exponentialit/zoho-integration:$(VERSION)
+	docker push $(REGISTRY)/zoho-integration:$(VERSION)
+
+publish-zoho: build-zoho push-zoho ## Construye y sube imagen Docker de zoho-integration
+
 
 build-openai: ## Construye imagen Docker de openai-integration
-	docker build -t exponentialit/openai-integration:$(VERSION) ./backend/services/openai_integration
+	docker build -t $(REGISTRY)/openai-integration:$(VERSION) ./backend/services/openai_integration
 
 push-openai: ## Sube imagen Docker de openai-integration
-	docker push exponentialit/openai-integration:$(VERSION)
+	docker push $(REGISTRY)/openai-integration:$(VERSION)
+
+publish-openai: build-openai push-openai ## Construye y sube imagen Docker de build-openai
+
 
 build-nginx: ## Construye imagen Docker de nginx
-	docker build -t exponentialit/nginx:$(VERSION) ./nginx
+	docker build -t $(REGISTRY)/nginx:$(VERSION) ./nginx
 
 push-nginx: ## Sube imagen Docker de nginx
-	docker push exponentialit/nginx:$(VERSION)
+	docker push $(REGISTRY)/nginx:$(VERSION)
+
+publish-nginx: build-nginx push-nginx ## Construye y sube imagen Docker de build-nginx
 
 build: build-admin build-orchestrator build-odoo build-zoho build-openai build-nginx ## Construye todas las imágenes
 push: push-admin push-orchestrator push-odoo push-zoho push-openai push-nginx ## Sube todas las imágenes
+publish: publish-admin publish-orchestrator publish-odoo publish-zoho publish-openai publish-nginx ## Publica todas las imagenes
 
 # ------------------------------------------------------------------------------
 # Variables de entorno
