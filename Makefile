@@ -1,8 +1,9 @@
 # Variables
-NETWORK = app_net
+REGISTRY=exponentialit
 STACK_NAME = exponentialit_stack
 COMPOSE_FILE = docker-stack.yml
-VERSION = v1.2.0-beta
+NETWORK = app_net
+VERSION = v1.2.0
 
 # ------------------------------------------------------------------------------
 # Inicialización y redes
@@ -177,11 +178,11 @@ shell-nginx: ## Accede al contenedor nginx
 # Subir imagen
 # ------------------------------------------------------------------------------
 build-admin: ## Construye imagen Docker de admin-django
-	docker build -t exponentialit/admin-django:$(VERSION) ./backend/django
+	docker build -t $(REGISTRY)/admin-django:$(VERSION) ./backend/django
+	docker push $(REGISTRY)/admin-django:$(VERSION)
 
-push-admin: ## Sube imagen Docker de admin-django
-	docker push exponentialit/admin-django:$(VERSION)
-
+# push-admin: ## Sube imagen Docker de admin-django
+ 
 build-orchestrator: ## Construye imagen Docker de orchestrator
 	docker build -t exponentialit/orchestrator:$(VERSION) ./backend/services/orchestrator
 
