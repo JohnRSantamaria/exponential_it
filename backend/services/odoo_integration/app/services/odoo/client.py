@@ -1,7 +1,8 @@
 import httpx
-from exponential_core.exceptions.types import OdooException
+from exponential_core.exceptions import CustomAppException, OdooException
 from exponential_core.logger import get_logger
 from app.core.settings import settings
+from app.services.odoo.exceptions import OdooCallException
 
 
 logger = get_logger()
@@ -78,12 +79,25 @@ class AsyncOdooClient:
             data = response.json()
             if "error" in data:
                 logger.error(f"Odoo error: {data['error']}")
-                raise OdooException(f"OdooError: {data['error']['data']['message']}")
+                # Puedes extraer más información si lo deseas:
+                error_message = data["error"]["data"].get(
+                    "message", "Error desconocido en Odoo"
+                )
+                raise OdooCallException(
+                    message=f"Error en Odoo: {error_message}",
+                    odoo_error=data["error"],
+                    status_code=502,
+                )
             return data.get("result")
+        except OdooCallException as oe:
+            logger.error(f"Excepción OdooCallException: {oe}")
+            raise
         except Exception as e:
             logger.exception("Fallo en la llamada JSON-RPC a Odoo")
-            raise OdooException(
-                "Error inesperado al comunicarse con Odoo", data={"error": str(e)}
+            raise CustomAppException(
+                "Error inesperado al comunicarse con Odoo",
+                data={"error": str(e)},
+                status_code=500,
             )
 
     async def create(self, model, data):
@@ -99,9 +113,16 @@ class AsyncOdooClient:
         return await self.call(model, "unlink", [ids])
 
     async def fields_get(self, model, attributes=None):
+        """
+        Consulta la metadata de los campos del modelo en Odoo.
+        Por defecto retorna 'string', 'help', 'type' y 'required' para cada campo.
+        - model: nombre del modelo Odoo
+        - attributes: lista opcional de atributos extra a incluir en el resultado
+        """
+        default_attrs = ["string", "help", "type", "required"]
         return await self.call(
             model,
             "fields_get",
             [],
-            {"attributes": attributes or ["string", "help", "type"]},
+            {"attributes": attributes or default_attrs},
         )

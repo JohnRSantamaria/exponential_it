@@ -1,6 +1,7 @@
 import asyncio
 from fastapi import UploadFile
-from app.services.odoo.processor import odoo_process
+from app.services.odoo.v16.processor import odoo_process as odoo_process_v16
+from app.services.odoo.v18.processor import odoo_process as odoo_process_v18
 from app.services.upload.process import save_file_dropbox
 from app.services.zoho.processor import zoho_process
 from .ocr import extract_ocr_payload, extract_taggun_data
@@ -37,18 +38,34 @@ async def handle_invoice_scan(
     logger.debug("Registro de escaneo completado")
 
     secrets_service = await SecretsService(company_vat=company_vat).load()
-    if secrets_service.get_invoice_processor() == "ZOHO":
+    invoice_processor = secrets_service.get_invoice_processor()
+
+    if invoice_processor == "ZOHO":
         await zoho_process(
             file=file,
             file_content=file_content,
             taggun_data=taggun_data,
             company_vat=company_vat,
         )
+    elif invoice_processor == "ODOO":
+        odoo_version = secrets_service.get_odoo_version()
+        logger.debug(f"Inicia el proceso de Odoo versión : {odoo_version}")
+        if odoo_version == "V16":
+            await odoo_process_v16(
+                taggun_data=taggun_data,
+                company_vat=company_vat,
+            )
+        elif odoo_version == "V18":
+            await odoo_process_v18(
+                taggun_data=taggun_data,
+                company_vat=company_vat,
+            )
+        else:
+            raise NotImplementedError(
+                f"La versión {odoo_version }: aún no ha sido implementada."
+            )
     else:
-        await odoo_process(
-            taggun_data=taggun_data,
-            company_vat=company_vat,
-        )
+        raise NotImplementedError(f"{invoice_processor} : No ha sido implementado aun.")
 
     logger.debug("Registro de cuenta contable completado")
 

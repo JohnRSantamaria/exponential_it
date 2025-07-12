@@ -5,7 +5,7 @@ from app.core.schemas.enums import ServicesEnum
 from app.services.odoo.secrets import SecretsServiceOdoo
 from app.services.openai.client import OpenAIService
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
-from app.services.odoo.client import (
+from app.services.odoo.v18.client import (
     get_or_create_address,
     get_or_create_contact_id,
     get_or_create_invoice,
@@ -22,6 +22,7 @@ async def odoo_process(
     odoo_provider = get_provider(
         service=ServicesEnum.ODOO,
         company_vat=company_vat,
+        version="v18",
     )
     config = ProviderConfig(server_url=settings.URL_OPENAPI)
     openai_service = OpenAIService(config=config)

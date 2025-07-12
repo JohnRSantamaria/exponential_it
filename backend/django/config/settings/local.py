@@ -1,13 +1,18 @@
 # config\settings\local.py
 import os
-from .base import *
-
 import dj_database_url
+
+from .base import *
+from decouple import config, Csv
 
 DEBUG = True
 
 ENVIRONMENT: str = "development"
 LOG_LEVEL: str = "DEBUG"
+
+
+HOST = config("HOST", default="*", cast=Csv())
+print(f"HOST : {HOST}")
 
 ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
 

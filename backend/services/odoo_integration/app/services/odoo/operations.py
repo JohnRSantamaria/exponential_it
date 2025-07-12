@@ -5,7 +5,7 @@ from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
 from exponential_core.exceptions import TaxIdNotFoundError
 from exponential_core.odoo import (
     TaxUseEnum,
-    InvoiceCreateSchema,
+    InvoiceCreateSchemaV18,
     AddressCreateSchema,
     ProductCreateSchema,
     SupplierCreateSchema,
@@ -99,7 +99,7 @@ async def get_or_create_product(
 
 
 async def get_or_create_invoice(
-    company: AsyncOdooClient, invoice_data: InvoiceCreateSchema
+    company: AsyncOdooClient, invoice_data: InvoiceCreateSchemaV18
 ) -> int:
     """
     Crea o devuelve una factura de proveedor (move_type='in_invoice') si ya existe.
@@ -128,3 +128,55 @@ async def get_or_create_invoice(
         payload["date"] = parse_to_date(payload.get("date"))
 
     return await company.create("account.move", payload)
+
+
+async def get_model_fields(company: AsyncOdooClient, model: str) -> dict:
+    """
+    Retorna todos los campos disponibles de un modelo Odoo, incluyendo tipo y etiqueta.
+
+    - model: nombre del modelo Odoo que se desea consultar. Ejemplos comunes:
+        - 'res.partner': Representa contactos, proveedores y clientes en Odoo.
+        - 'account.tax': Representa los diferentes tipos de impuestos configurados en Odoo.
+        - 'product.product': Representa productos (SKU) individuales disponibles para vender o comprar.
+        - 'account.move': Representa facturas, asientos contables y otros movimientos financieros.
+
+    Retorna:
+        diccionario {nombre_campo: {'type': ..., 'string': ...}}
+        Por ejemplo: {'id': {'type': 'integer', 'string': 'ID'}, ...}
+    """
+    fields = await company.fields_get(model)
+    return {
+        name: {
+            "string": meta["string"],
+            "type": meta["type"],
+            "help": meta.get("help"),
+        }
+        for name, meta in fields.items()
+    }
+
+
+async def get_required_fields(company: AsyncOdooClient, model: str) -> dict:
+    """
+    Retorna un diccionario con la metadata de los campos obligatorios de un modelo Odoo,
+    incluyendo tipo y etiqueta.
+
+    - model: nombre del modelo Odoo que se desea consultar. Ejemplos comunes:
+        - 'res.partner': Representa contactos, proveedores y clientes en Odoo.
+        - 'account.tax': Representa los diferentes tipos de impuestos configurados en Odoo.
+        - 'product.product': Representa productos (SKU) individuales disponibles para vender o comprar.
+        - 'account.move': Representa facturas, asientos contables y otros movimientos financieros.
+
+    Retorna:
+        diccionario {nombre_campo: {'type': ..., 'string': ...}} solo para los campos obligatorios.
+        Por ejemplo: {'name': {'type': 'char', 'string': 'Nombre'}, ...}
+    """
+    fields = await company.fields_get(model)
+    return {
+        name: {
+            "string": meta["string"],
+            "type": meta["type"],
+            "help": meta.get("help"),
+        }
+        for name, meta in fields.items()
+        if meta.get("required")
+    }

@@ -1,26 +1,30 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_company
 from app.services.odoo.client import AsyncOdooClient
+from app.services.odoo.v18.operations import (
+    get_or_create_product as get_or_create_product_v18,
+)
 from app.services.odoo.operations import (
+    get_model_fields,
     get_or_create_address,
     get_or_create_invoice,
-    get_or_create_product,
     get_or_create_supplier,
+    get_required_fields,
     get_tax_id_by_amount,
     get_tax_ids,
 )
 
 from exponential_core.odoo import (
     TaxUseEnum,
-    InvoiceCreateSchema,
+    InvoiceCreateSchemaV18,
     AddressCreateSchema,
-    ProductCreateSchema,
+    ProductCreateSchemaV18,
     SupplierCreateSchema,
 )
 
 
-router = APIRouter()
+router = APIRouter(prefix="/v18", tags=["v18"])
 
 
 @router.post("/create-supplier")
@@ -69,18 +73,40 @@ async def get_all_tax_ids(
 
 @router.post("/create-product")
 async def create_product(
-    product_data: ProductCreateSchema,
+    product_data: ProductCreateSchemaV18,
     company: AsyncOdooClient = Depends(get_company),
 ):
-    product_id = await get_or_create_product(company, product_data)
+    product_id = await get_or_create_product_v18(company, product_data)
     return {"product_id": product_id}
 
 
 @router.post("/register-invoice")
 async def register_invoice(
-    invoice_data: InvoiceCreateSchema,
+    invoice_data: InvoiceCreateSchemaV18,
     company: AsyncOdooClient = Depends(get_company),
 ):
     # 🧾 Crear factura de proveedor
     invoice_id = await get_or_create_invoice(company, invoice_data)
     return {"invoice_id": invoice_id}
+
+
+@router.get("/model-fields")
+async def model_fields(
+    company: AsyncOdooClient = Depends(get_company),
+    model: str = Query(
+        ..., description="Nombre del modelo en Odoo (ej. 'account.move')"
+    ),
+):
+    fields = await get_model_fields(company=company, model=model)
+    return {"fields": fields}
+
+
+@router.get("/required-fields")
+async def required_fields(
+    company: AsyncOdooClient = Depends(get_company),
+    model: str = Query(
+        ..., description="Nombre del modelo en Odoo (ej. 'account.move')"
+    ),
+):
+    fields = await get_required_fields(company=company, model=model)
+    return {"fields": fields}

@@ -3,7 +3,7 @@ from exponential_core.exceptions import (
     setup_exception_handlers,
     GlobalExceptionMiddleware,
 )
-from app.api.routes import entry
+from app.api.routes import v16, v18
 from app.core.lifespan import lifespan
 
 # Crear instancia de FastAPI
@@ -18,9 +18,8 @@ app = FastAPI(
 app.add_middleware(GlobalExceptionMiddleware)
 
 # Registrar rutas
-app.include_router(
-    entry.router,
-)
+app.include_router(v16.router)
+app.include_router(v18.router)
 
 # Registrar todos los exception handlers de forma automática
 setup_exception_handlers(app)

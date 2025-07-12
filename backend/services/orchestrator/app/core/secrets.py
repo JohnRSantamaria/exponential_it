@@ -18,6 +18,9 @@ class SecretsService:
     def get_invoice_processor(self) -> str:
         return self._get_required("INVOICE_PROCESSOR")
 
+    def get_odoo_version(self) -> str:
+        return self._get_required("ODOO_VERSION")
+
     def get_storage_service(self) -> str:
         return self._get_required("STORAGE")
 
