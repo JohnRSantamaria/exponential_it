@@ -3,7 +3,7 @@ REGISTRY=exponentialit
 STACK_NAME = exponentialit_stack
 COMPOSE_FILE = docker-stack.yml
 NETWORK = app_net
-VERSION = v1.2.0-beta
+VERSION = v1.3.0-beta
 
 # ------------------------------------------------------------------------------
 # Inicialización y redes

@@ -9,12 +9,11 @@ DEBUG = True
 
 ENVIRONMENT: str = "development"
 LOG_LEVEL: str = "DEBUG"
-
+print(f"ENVIROMENT : [{ENVIRONMENT}]")
 
 HOST = config("HOST", default="*", cast=Csv())
-print(f"HOST : {HOST}")
-
-ALLOWED_HOSTS = ["127.0.0.1", "localhost", "0.0.0.0"]
+ALLOWED_HOSTS = HOST
+print(f"ALLOWED_HOSTS : {HOST}")
 
 
 MIDDLEWARE.insert(1, "corsheaders.middleware.CorsMiddleware")
