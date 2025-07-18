@@ -14,7 +14,7 @@ class AccountAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        user = cleaned_data.get("user")
+        user = cleaned_data.get("user") or getattr(self.instance, "user", None)
         name = cleaned_data.get("name")
 
         if user and name:
@@ -23,7 +23,7 @@ class AccountAdminForm(forms.ModelForm):
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise forms.ValidationError(
-                    f"Ya existe una cuenta con ese nombre para el usuario {user.email}"
+                    f"Ya existe una cuenta con ese nombre para el usuario {getattr(user, 'email', 'desconocido')}"
                 )
 
         return cleaned_data

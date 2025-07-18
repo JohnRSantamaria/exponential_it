@@ -8,7 +8,7 @@ from users.models import User
 
 class Account(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="accounts")
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, help_text="Nombre de la cuenta")
     tax_id = models.CharField(
         help_text="Identificacion fiscal",
         max_length=20,
