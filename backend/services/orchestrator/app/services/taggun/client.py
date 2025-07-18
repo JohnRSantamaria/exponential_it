@@ -21,27 +21,22 @@ class TaggunService:
         file_content: bytes,
         content_type: str,
     ):
-        headers = {
-            "apikey": self.api_key,
-        }
-
         files = {
             "file": (file_name, file_content, content_type),
-        }
-
-        data = {
-            "extractLineItems": "true",
-            "extractTime": "false",
-            "refresh": "false",
-            "incognito": "false",
+            "extractLineItems": (None, "true"),
+            "extractTime": (None, "false"),
+            "refresh": (None, "false"),
+            "incognito": (None, "false"),
         }
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             try:
                 response = await client.post(
                     url=self.path,
-                    headers=headers,
-                    data=data,
+                    headers={
+                        "accept": "application/json",
+                        "apikey": self.api_key,
+                    },
                     files=files,
                 )
                 response.raise_for_status()

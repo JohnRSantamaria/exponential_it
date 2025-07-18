@@ -25,6 +25,11 @@ class TaxIdExtractor:
         similarity_threshold: float = 0.9,
     ):
         self.text = text
+        self.text_cleaned = re.sub(
+            r"([A-HJ-NP-SUVW])\s?(\d{2})\s?(\d{4})\s?(\d{1,2})\b",
+            r"\1\2\3\4",
+            self.text,
+        )
         self.similarity_threshold = similarity_threshold
         self.patterns = {
             "cif": r"[A-HJ-NP-SUVW]-?\d{7}[0-9A-J]\b(?![A-Za-z0-9])",
@@ -41,7 +46,7 @@ class TaxIdExtractor:
         seen = set()
 
         for tipo, pattern in self.patterns.items():
-            matches = re.findall(pattern, self.text)
+            matches = re.findall(pattern, self.text_cleaned)
             for match in matches:
                 cleaned = match.replace("-", "")
                 if cleaned not in seen:
