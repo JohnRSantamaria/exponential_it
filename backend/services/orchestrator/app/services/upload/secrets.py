@@ -35,6 +35,11 @@ class SecretsService:
             "app_secret": self.get_dropbox_app_secret(),
         }
 
+    def get_dropbox_root_file(self) -> dict:
+        if self._secrets is None:
+            return None
+        return self._secrets.get("DROPBOX_ROOT_FILE") or None
+
     def _get_required(self, key: str) -> str:
         if self._secrets is None:
             raise RuntimeError(

@@ -26,17 +26,23 @@ async def save_file_dropbox(
     company_vat: str,
     max_retries: int = 3,
 ):
+    secrets_service = await SecretsService(company_vat=company_vat).load()
+    credentials = secrets_service.get_dropbox_credentials()
+    root_file = secrets_service.get_dropbox_root_file()
+
     file_ext = os.path.splitext(file.filename or "")[-1]
     file_hash = calculate_file_hash(file_content)
     remote_filename = f"{file_hash}{file_ext}"
     remote_path = PathBuilder().build(date=taggun_data.date)
-    full_remote_path = f"{remote_path}/{remote_filename}"
+
+    if root_file:
+        full_remote_path = f"{root_file}/{remote_path}/{remote_filename}"
+    else:
+        full_remote_path = f"{remote_path}/{remote_filename}"
 
     uploader_name = UploadersEnum.DROPBOX.value
     logger.debug(f"uploader_name : {uploader_name}")
-
-    secrets_service = await SecretsService(company_vat=company_vat).load()
-    credentials = secrets_service.get_dropbox_credentials()
+    logger.debug(f"full remote path : {full_remote_path}")
 
     uploader = get_uploader(name=UploadersEnum.DROPBOX, **credentials)
 
