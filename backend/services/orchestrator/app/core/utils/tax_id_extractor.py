@@ -58,11 +58,10 @@ class TaxIdExtractor:
         for tipo, valor in candidates:
             valor = valor.strip().upper()
 
-            # Normalizar para comparación
             normalized = TaxIdExtractor.normalize_tax_id(valor)
 
             if normalized in seen_normalized:
-                continue  # Ya fue agregado un equivalente
+                continue
 
             if tipo == "vat":
                 try:
@@ -174,7 +173,6 @@ class TaxIdExtractor:
         """
         valid_ids = self.valid_tax_ids()
 
-        # Filtrar los que NO son de la empresa
         candidates = [
             tax_id
             for tax_id in valid_ids
@@ -186,7 +184,6 @@ class TaxIdExtractor:
 
         if len(candidates) > 1:
             if self._all_similar(candidates, threshold=self.similarity_threshold):
-                # Puedes retornar el más largo o más limpio
                 return max(candidates, key=len)
             raise MultiplePartnerTaxIdsError(candidates)
 
