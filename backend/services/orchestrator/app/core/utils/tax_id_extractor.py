@@ -22,7 +22,7 @@ class TaxIdExtractor:
         self,
         text: str,
         all_tax_ids: list[str],
-        similarity_threshold: float = 0.85,
+        similarity_threshold: float = 0.9,
     ):
         self.text = text
         self.text_cleaned = re.sub(
