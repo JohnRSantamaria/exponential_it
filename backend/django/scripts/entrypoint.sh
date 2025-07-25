@@ -2,25 +2,23 @@
 echo "📌 Entrypoint iniciado"
 
 # Cargar variables desde .env si no las inyecta Docker directamente
-set -a
-[ -f /app/.env ] && . /app/.env
-set +a
+export $(grep -v '^#' /app/.env | xargs) || true
 
 echo "🌍 DEBUG=$DEBUG"
 
 # Seleccionar la base de datos según el entorno
 if [ "$DEBUG" = "False" ]; then
   echo "🚀 Entorno producción"
-  DB_URL="$DATABASE_PROD"
+  DB_URL=${DATABASE_PROD}
 else
   echo "🧪 Entorno desarrollo"
-  DB_URL="$DATABASE_LOCAL"
+  DB_URL=${DATABASE_LOCAL}
 fi
 
 # Extraer host y puerto de la URL
-AFTER_AT=$(echo "$DB_URL" | cut -d'@' -f2 | cut -d'/' -f1)
-DB_HOST=$(echo "$AFTER_AT" | cut -d':' -f1)
-DB_PORT=$(echo "$AFTER_AT" | cut -s -d':' -f2)
+AFTER_AT=$(echo "$DB_URL" | awk -F@ '{print $2}' | awk -F/ '{print $1}')
+DB_HOST=$(echo "$AFTER_AT" | cut -d: -f1)
+DB_PORT=$(echo "$AFTER_AT" | cut -s -d: -f2)
 DB_PORT=${DB_PORT:-5432}
 
 # Validación defensiva
@@ -31,7 +29,6 @@ if [ -z "$DB_HOST" ] || [ -z "$DB_PORT" ]; then
 fi
 
 echo "🌐 Esperando a la base de datos en $DB_HOST:$DB_PORT..."
-
 for i in $(seq 1 30); do
   if nc -z "$DB_HOST" "$DB_PORT"; then
     echo "✅ DB disponible"
@@ -42,8 +39,7 @@ for i in $(seq 1 30); do
 done
 
 if ! nc -z "$DB_HOST" "$DB_PORT"; then
-  echo ""
-  echo "❌ Timeout: no se pudo conectar a $DB_HOST:$DB_PORT"
+  echo "\n❌ Timeout: no se pudo conectar a $DB_HOST:$DB_PORT"
   exit 1
 fi
 
