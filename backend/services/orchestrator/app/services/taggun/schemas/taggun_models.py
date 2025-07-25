@@ -30,5 +30,6 @@ class TaggunExtractedInvoice(BaseModel):
     amount_total: float
     amount_tax: float
     amount_untaxed: float
+    amount_discount: float
     address: AddressSchema
     line_items: list[LineItemSchema]

@@ -16,7 +16,7 @@ from app.services.zoho.schemas.bills_response import BillsResponse
 from app.services.zoho.schemas.chart_of_accounts_response import ChartOfAccountsResponse
 from app.services.zoho.schemas.contacts_response import ContactResponse
 from app.services.zoho.schemas.taxes_response import TaxesResponse
-from app.services.zoho.tax_resolver import calculate_tax_percentage_candidates
+from app.services.zoho.tax_resolver import TaxCalculator
 
 
 async def find_contact(
@@ -113,15 +113,15 @@ async def get_tax_id(
     ]
     validated = TypeAdapter(List[TaxesResponse]).validate_python(taxes)
 
-    candidate_set = calculate_tax_percentage_candidates(
-        amount_tax=taggun_data.amount_tax,
-        amount_total=taggun_data.amount_total,
-        amount_untaxed=taggun_data.amount_untaxed,
+    calculator = TaxCalculator(
+        amount_untaxed=100.0, amount_total=121.0, amount_tax=21.0, amount_discount=0.0
     )
-    logger.debug(f"Candidatos a porcentaje de impuesto: {candidate_set}")
+    candidates_set = calculator.calculate()
+
+    logger.debug(f"Candidatos a porcentaje de impuesto: {candidates_set}")
 
     matching = next(
-        (tax for tax in validated if tax.tax_percentage in candidate_set), None
+        (tax for tax in validated if tax.tax_percentage in candidates_set), None
     )
     if matching:
         logger.debug(f"Tax seleccionado: {matching.tax_id}")

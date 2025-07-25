@@ -36,9 +36,9 @@ async def save_file_dropbox(
     remote_path = PathBuilder().build(date=taggun_data.date)
 
     if root_file:
-        full_remote_path = f"{root_file}/{remote_path}/{remote_filename}"
+        full_remote_path = f"/{root_file}/{company_vat}/{remote_path}/{remote_filename}"
     else:
-        full_remote_path = f"{remote_path}/{remote_filename}"
+        full_remote_path = f"/{company_vat}/{remote_path}/{remote_filename}"
 
     uploader_name = UploadersEnum.DROPBOX.value
     logger.debug(f"uploader_name : {uploader_name}")

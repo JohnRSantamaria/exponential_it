@@ -103,8 +103,9 @@ class TaggunExtractor:
 
         amount_total = self.safe_float(self.try_paths(["totalAmount", "data"]))
         amount_tax = self.safe_float(self.try_paths(["taxAmount", "data"]))
-        amount_untaxed = round(amount_total - amount_tax, 2)
-
+        amount_untaxed = self.safe_float(self.try_paths(["paidAmount", "data"]))
+        amount_discount = self.safe_float(self.try_paths(["discountAmount", "data"]))
+    
         address = self.extract_address()
         lines = self.parse_line_items()
 
@@ -116,6 +117,7 @@ class TaggunExtractor:
             amount_total=amount_total,
             amount_tax=amount_tax,
             amount_untaxed=amount_untaxed,
+            amount_discount=amount_discount,
             address=address,
             line_items=lines,
         )

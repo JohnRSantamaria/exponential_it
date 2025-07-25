@@ -27,6 +27,7 @@ async def handle_invoice_scan(
 
     payload_text = payload.get("text", {}).get("text", "")
     company_vat, partner_vat, extractor = find_tax_ids(payload_text, all_tax_ids)
+    logger.debug(f"company_vat : {company_vat}")
     taggun_data.partner_vat = partner_vat
 
     account = get_account_match(accounts_response, company_vat, extractor)

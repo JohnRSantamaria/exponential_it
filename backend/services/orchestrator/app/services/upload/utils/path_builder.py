@@ -22,5 +22,5 @@ class PathBuilder:
         year = date.year
         quarter = f"Q{(date.month - 1) // 3 + 1}"
         month = f"{str(date.month).zfill(2)}-{MONTHS[date.month]}"
-        remote_path = f"/{year}/{quarter}/{month}"
+        remote_path = f"{year}/{quarter}/{month}"
         return remote_path

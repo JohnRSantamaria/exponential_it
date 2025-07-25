@@ -28,3 +28,12 @@ class ZohoConnectionError(ZohoServiceError):
 class ZohoUnexpectedError(ZohoServiceError):
     def __init__(self, message="Error inesperado al comunicarse con Zoho", data=None):
         super().__init__(message=message, data=data)
+
+
+class TaxPercentageNotFound(ZohoServiceError):
+    def __init__(
+        self,
+        message="No se pudo determinar un porcentaje de impuesto válido",
+        data=None,
+    ):
+        super().__init__(message=message, data=data)

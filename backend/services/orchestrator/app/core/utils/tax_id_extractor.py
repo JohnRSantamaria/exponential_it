@@ -22,7 +22,7 @@ class TaxIdExtractor:
         self,
         text: str,
         all_tax_ids: list[str],
-        similarity_threshold: float = 0.9,
+        similarity_threshold: float = 0.85,
     ):
         self.text = text
         self.text_cleaned = re.sub(
@@ -38,21 +38,45 @@ class TaxIdExtractor:
         self.all_tax_ids: List[str] = all_tax_ids
         self.candidates: List[Tuple[str, str]] = self._extract_all_ids()
 
-    def _extract_all_ids(self) -> List[Tuple[str, str]]:
+    @staticmethod
+    def normalize_tax_id(tax_id: str) -> str:
         """
-        Extrae todas las identificaciones fiscales del texto y elimina duplicados.
+        Normaliza el identificador fiscal eliminando prefijos de país (como ES, PT, etc.)
         """
-        ids = []
-        seen = set()
+        tax_id = tax_id.strip().upper()
+        return re.sub(r"^([A-Z]{2})(?=\w{8,})", "", tax_id)
 
-        for tipo, pattern in self.patterns.items():
-            matches = re.findall(pattern, self.text_cleaned)
-            for match in matches:
-                cleaned = match.replace("-", "")
-                if cleaned not in seen:
-                    ids.append((tipo, cleaned))
-                    seen.add(cleaned)
-        return ids
+    @staticmethod
+    def validate_candidates(candidates: List[Tuple[str, str]]) -> List[str]:
+        """
+        Valida una lista de tuplas (tipo, valor) y retorna solo los identificadores válidos,
+        evitando duplicados mediante normalización.
+        """
+        valid = []
+        seen_normalized = set()
+
+        for tipo, valor in candidates:
+            valor = valor.strip().upper()
+
+            # Normalizar para comparación
+            normalized = TaxIdExtractor.normalize_tax_id(valor)
+
+            if normalized in seen_normalized:
+                continue  # Ya fue agregado un equivalente
+
+            if tipo == "vat":
+                try:
+                    if vat_validator.is_valid(valor):
+                        valid.append(valor)
+                        seen_normalized.add(normalized)
+                except Exception:
+                    continue
+            elif tipo == "cif":
+                if TaxIdExtractor._is_valid_cif(valor):
+                    valid.append(valor)
+                    seen_normalized.add(normalized)
+
+        return valid
 
     @staticmethod
     def _is_valid_cif(cif: str) -> bool:
@@ -80,13 +104,31 @@ class TaxIdExtractor:
             return control == str(control_digit)
         return control == str(control_digit) or control == letters[control_digit]
 
+    def _extract_all_ids(self) -> List[Tuple[str, str]]:
+        """
+        Extrae todas las identificaciones fiscales del texto y elimina duplicados.
+        """
+        ids = []
+        seen = set()
+
+        for tipo, pattern in self.patterns.items():
+            matches = re.findall(pattern, self.text_cleaned)
+            for match in matches:
+                cleaned = match.replace("-", "")
+                if cleaned not in seen:
+                    ids.append((tipo, cleaned))
+                    seen.add(cleaned)
+        return ids
+
     def _are_similar(self, a: str, b: str, threshold: float = 0.9) -> bool:
+        """
+        Compara dos identificadores fiscales eliminando prefijos como ES, y mide su similitud.
+        """
         if not a or not b:
             return False
-        return (
-            difflib.SequenceMatcher(None, a.strip().lower(), b.strip().lower()).ratio()
-            >= threshold
-        )
+        a_norm = self.normalize_tax_id(a)
+        b_norm = self.normalize_tax_id(b)
+        return difflib.SequenceMatcher(None, a_norm, b_norm).ratio() >= threshold
 
     def _all_similar(self, items: List[str], threshold: float = 0.9) -> bool:
         if not items:
@@ -95,24 +137,6 @@ class TaxIdExtractor:
         return all(
             self._are_similar(base, item, threshold=threshold) for item in items[1:]
         )
-
-    @staticmethod
-    def validate_candidates(candidates: List[Tuple[str, str]]) -> List[str]:
-        """
-        Valida una lista de tuplas (tipo, valor) y retorna solo los identificadores válidos.
-        """
-        valid = []
-        for tipo, valor in candidates:
-            if tipo == "vat":
-                try:
-                    if vat_validator.is_valid(valor):
-                        valid.append(valor)
-                except Exception:
-                    continue
-            elif tipo == "cif":
-                if TaxIdExtractor._is_valid_cif(valor):
-                    valid.append(valor)
-        return valid
 
     def valid_tax_ids(self) -> List[str]:
         """

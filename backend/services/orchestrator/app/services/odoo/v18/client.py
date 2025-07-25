@@ -9,7 +9,6 @@ from app.services.openai.schemas.classification_tax_request import (
     TaxIdResponseSchema,
 )
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
-from app.services.zoho.tax_resolver import calculate_tax_percentage_candidates
 from exponential_core.odoo import (
     SupplierCreateSchema,
     AddressCreateSchema,
@@ -21,6 +20,8 @@ from exponential_core.odoo import (
     InvoiceLineSchema,
     InvoiceCreateSchema,
 )
+
+from app.services.zoho.tax_resolver import TaxCalculator
 
 
 async def get_or_create_contact_id(
@@ -77,17 +78,20 @@ async def get_tax_id_openai(
     validated_tax_ids: List[ResponseTaxesSchema],
     openai_service: OpenAIService,
 ):
-    candidate_set = calculate_tax_percentage_candidates(
+    calculator = TaxCalculator(
         amount_tax=taggun_data.amount_tax,
         amount_total=taggun_data.amount_total,
         amount_untaxed=taggun_data.amount_untaxed,
+        amount_discount=taggun_data.amount_discount,
     )
-    logger.debug(f"Candidatos a porcentaje de impuesto: {candidate_set}")
+
+    candidates_set = calculator.calculate()
+    logger.debug(f"Candidatos a porcentaje de impuesto: {candidates_set}")
 
     proveedor = taggun_data.partner_name
     nif = taggun_data.partner_vat
     productos = taggun_data.line_items
-    iva_rate = next(iter(candidate_set))
+    iva_rate = next(iter(candidates_set))
     candidate_tax_ids = validated_tax_ids
 
     payload = {

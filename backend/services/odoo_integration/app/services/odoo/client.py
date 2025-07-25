@@ -35,19 +35,51 @@ class AsyncOdooClient:
             "id": 1,
         }
 
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(self.jsonrpc_url, json=payload)
+        try:
 
-        if response.status_code != 200 or "result" not in response.json():
-            raise OdooException("Fallo al autenticar con Odoo")
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(self.jsonrpc_url, json=payload)
+                data = response.json()
 
-        result = response.json()["result"]
-        if not result:
-            raise OdooException("Credenciales inválidas para Odoo", status_code=401)
+                if "error" in data:
+                    message = (
+                        data.get("error", {})
+                        .get("data", {})
+                        .get("message", "Error inesperado")
+                    )
 
-        logger.info("Autenticación exitosa con Odoo")
-        self.uid = result
-        return self.uid
+                    logger.error(f"Error al autenticar con odoo: {message}")
+
+                    raise OdooException(
+                        f"Error autenticando con Odoo: {message}",
+                        status_code=502,
+                    )
+
+                if "result" not in data or not data["result"]:
+                    raise OdooException(
+                        "Credenciales inválidas para Odoo", status_code=401
+                    )
+
+                logger.info("Autenticación exitosa con Odoo")
+                self.uid = data["result"]
+                return self.uid
+
+        except OdooException as e:
+            raise e
+
+        except httpx.RequestError as e:
+            logger.error(f"Error de red al autenticar con Odoo: {e}")
+            raise OdooException("Fallo de red al autenticar con Odoo", status_code=504)
+
+        except ValueError as e:
+            logger.exception("La respuesta de Odoo no es JSON válido")
+            raise OdooException("Respuesta inválida desde Odoo", status_code=502)
+
+        except Exception as e:
+            logger.exception("Fallo inesperado al autenticar con Odoo")
+            raise CustomAppException(
+                "Error inesperado al autenticar con Odoo", data={"error": str(e)}
+            )
 
     async def call(self, model, method, args=None, kwargs=None):
         if self.uid is None:
