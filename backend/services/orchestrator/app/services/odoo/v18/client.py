@@ -21,7 +21,7 @@ from exponential_core.odoo import (
     InvoiceCreateSchema,
 )
 
-from app.services.zoho.tax_resolver import TaxCalculator
+from app.core.utils.tax_resolver import TaxCalculator
 
 
 async def get_or_create_contact_id(

@@ -53,7 +53,6 @@ async def odoo_process(
             openai_service=openai_service,
         )
 
-    # Create products
     product_ids = await get_or_create_products(
         taggun_data=taggun_data,
         odoo_provider=odoo_provider,

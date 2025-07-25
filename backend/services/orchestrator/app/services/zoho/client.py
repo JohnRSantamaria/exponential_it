@@ -16,7 +16,7 @@ from app.services.zoho.schemas.bills_response import BillsResponse
 from app.services.zoho.schemas.chart_of_accounts_response import ChartOfAccountsResponse
 from app.services.zoho.schemas.contacts_response import ContactResponse
 from app.services.zoho.schemas.taxes_response import TaxesResponse
-from app.services.zoho.tax_resolver import TaxCalculator
+from app.core.utils.tax_resolver import TaxCalculator
 
 
 async def find_contact(

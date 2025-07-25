@@ -106,7 +106,6 @@ async def get_or_create_invoice(
     Se considera duplicada si coincide `ref` (número de factura) y `partner_id`.
     """
 
-    # Verificar si ya existe
     domain = [
         ["move_type", "=", "in_invoice"],
         ["ref", "=", invoice_data.ref],  # Número de factura del proveedor
@@ -118,7 +117,6 @@ async def get_or_create_invoice(
         logger.debug(f"Factura ya existente: {existing[0]["id"]}")
         return existing[0]["id"]
 
-    # Crear si no existe
     logger.debug(f"Creando factura")
     payload = invoice_data.as_odoo_payload()
 

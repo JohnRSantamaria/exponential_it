@@ -30,7 +30,6 @@ async def create_supplier(
     supplier_data: SupplierCreateSchema,
     company: AsyncOdooClient = Depends(get_company),
 ):
-    # 👤 Crear proveedor (partner) B70845755
     partner_id = await get_or_create_supplier(company, supplier_data)
 
     return {"partner_id": partner_id}
@@ -83,7 +82,6 @@ async def register_invoice(
     invoice_data: InvoiceCreateSchema,
     company: AsyncOdooClient = Depends(get_company),
 ):
-    # 🧾 Crear factura de proveedor
     invoice_id = await get_or_create_invoice(company, invoice_data)
     return {"invoice_id": invoice_id}
 

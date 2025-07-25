@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from app.core.logging import logger
+from app.core.utils.tax_resolver import TaxCalculator
 from app.services.taggun.exceptions import FieldNotFoundError
 from app.services.taggun.schemas.taggun_models import (
     AddressSchema,
@@ -65,14 +66,45 @@ class TaggunExtractor:
         raw_items = self.extract_line_items()
         parsed_items: list[LineItemSchema] = []
 
+        amount_total = self.safe_float(self.try_paths(["totalAmount", "data"]))
+        amount_tax = self.safe_float(self.try_paths(["taxAmount", "data"]))
+        amount_untaxed = self.safe_float(self.try_paths(["paidAmount", "data"]))
+        amount_discount = self.safe_float(self.try_paths(["discountAmount", "data"]))
+
+        calculator = TaxCalculator(
+            amount_discount=amount_discount,
+            amount_tax=amount_tax,
+            amount_total=amount_total,
+            amount_untaxed=amount_untaxed,
+        )
+
+        calculator.reorder(
+            amount_tax=amount_tax,
+            amount_untaxed=amount_untaxed,
+            amount_total=amount_total,
+        )
+
         for item in raw_items:
             data = item.get("data", {})
+
+            product_name = data.get("name", {}).get("data", "")
+            quantity = data.get("quantity", {}).get("data", 0)
+            unit_price = self.safe_float(data.get("unitPrice", {}).get("data"))
+            total_price = self.safe_float(data.get("totalPrice", {}).get("data"))
+
+            # ? En caso de que sea mayor que el valor total que el unitprice dado que este va sin taxes lo remplazamos
+            if unit_price >= calculator.amount_total:
+                unit_price = calculator.amount_untaxed
+
+            if total_price < unit_price:
+                total_price = calculator.amount_total
+
             parsed_items.append(
                 LineItemSchema(
-                    name=data.get("name", {}).get("data", ""),
-                    quantity=data.get("quantity", {}).get("data", 0),
-                    unit_price=self.safe_float(data.get("unitPrice", {}).get("data")),
-                    total_price=self.safe_float(data.get("totalPrice", {}).get("data")),
+                    name=product_name,
+                    quantity=quantity,
+                    unit_price=unit_price,
+                    total_price=total_price,
                 )
             )
 
@@ -105,7 +137,19 @@ class TaggunExtractor:
         amount_tax = self.safe_float(self.try_paths(["taxAmount", "data"]))
         amount_untaxed = self.safe_float(self.try_paths(["paidAmount", "data"]))
         amount_discount = self.safe_float(self.try_paths(["discountAmount", "data"]))
-    
+
+        calculator = TaxCalculator(
+            amount_discount=amount_discount,
+            amount_total=amount_total,
+            amount_untaxed=amount_untaxed,
+            amount_tax=amount_tax,
+        )
+        calculator.reorder(
+            amount_total=amount_total,
+            amount_untaxed=amount_untaxed,
+            amount_tax=amount_tax,
+        )
+
         address = self.extract_address()
         lines = self.parse_line_items()
 
@@ -114,10 +158,10 @@ class TaggunExtractor:
             partner_vat=partner_vat,
             date=date_invoice,
             invoice_number=invoice_number,
-            amount_total=amount_total,
-            amount_tax=amount_tax,
-            amount_untaxed=amount_untaxed,
-            amount_discount=amount_discount,
+            amount_total=calculator.amount_total,
+            amount_tax=calculator.amount_tax,
+            amount_untaxed=calculator.amount_untaxed,
+            amount_discount=calculator.amount_discount,
             address=address,
             line_items=lines,
         )

@@ -23,6 +23,7 @@ async def handle_invoice_scan(
     all_tax_ids = [a.account_tax_id for a in accounts_response.accounts]
 
     payload = await extract_ocr_payload(file=file, file_content=file_content)
+    logger.info("Comienzo de extracción de datos OCR")
     taggun_data = extract_taggun_data(payload)
 
     payload_text = payload.get("text", {}).get("text", "")

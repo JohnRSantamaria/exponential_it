@@ -2,13 +2,17 @@ from typing import List
 from pydantic import TypeAdapter
 from datetime import datetime
 from app.core.logging import logger
+from app.core.utils.tax_resolver import TaxCalculator
 from app.core.patterns.adapter.odoo_adapter import OdooAdapter
+
 from app.services.openai.client import OpenAIService
+from app.services.odoo.exceptions import OdooTaxIdNotFound
+from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.openai.schemas.classification_tax_request import (
     ClasificacionRequest,
     TaxIdResponseSchema,
 )
-from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
+
 
 from exponential_core.odoo import (
     SupplierCreateSchema,
@@ -21,8 +25,6 @@ from exponential_core.odoo import (
     InvoiceLineSchema,
     InvoiceCreateSchema,
 )
-
-from app.services.zoho.tax_resolver import TaxCalculator
 
 
 async def get_or_create_contact_id(
@@ -94,8 +96,11 @@ async def get_tax_id_openai(
     proveedor = taggun_data.partner_name
     nif = taggun_data.partner_vat
     productos = taggun_data.line_items
-    iva_rate = next(iter(canditates_set))
+    iva_rate = next(iter(canditates_set), None)
     candidate_tax_ids = validated_tax_ids
+
+    if iva_rate is None:
+        raise OdooTaxIdNotFound()
 
     payload = {
         "provider": proveedor,
