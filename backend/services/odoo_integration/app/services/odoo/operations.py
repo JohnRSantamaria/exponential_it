@@ -1,11 +1,12 @@
 from datetime import datetime
 from app.core.logging import logger
 from app.services.odoo.client import AsyncOdooClient
+
+from app.services.odoo.schemas.invoice import InvoiceCreateSchemaV18
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
 from exponential_core.exceptions import TaxIdNotFoundError
 from exponential_core.odoo import (
     TaxUseEnum,
-    InvoiceCreateSchemaV18,
     AddressCreateSchema,
     ProductCreateSchema,
     SupplierCreateSchema,

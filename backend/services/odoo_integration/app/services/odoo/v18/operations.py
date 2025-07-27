@@ -1,9 +1,9 @@
 from datetime import datetime
 from app.core.logging import logger
 from app.services.odoo.client import AsyncOdooClient
+from app.services.odoo.schemas.product import ProductCreateSchemaV18
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
-
-from exponential_core.odoo import ProductCreateSchemaV18, InvoiceCreateSchema
+from exponential_core.odoo import InvoiceCreateSchema
 
 
 async def get_or_create_product(

@@ -5,6 +5,10 @@ from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.v18.operations import (
     get_or_create_product as get_or_create_product_v18,
 )
+
+from app.services.odoo.schemas.invoice import InvoiceCreateSchemaV18
+from app.services.odoo.schemas.product import ProductCreateSchemaV18
+
 from app.services.odoo.operations import (
     get_model_fields,
     get_or_create_address,
@@ -15,11 +19,10 @@ from app.services.odoo.operations import (
     get_tax_ids,
 )
 
+
 from exponential_core.odoo import (
     TaxUseEnum,
-    InvoiceCreateSchemaV18,
     AddressCreateSchema,
-    ProductCreateSchemaV18,
     SupplierCreateSchema,
 )
 
