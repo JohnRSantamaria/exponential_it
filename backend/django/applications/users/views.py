@@ -15,7 +15,7 @@ from core.utils.set_cookies import set_jwt_cookies
 from users.authentication import User
 from users.serializers import (
     EmailSerializer,
-    MeSerializer,
+    UserAccountSerializer,
     ScanningSerializer,
     UserRegisterSerializer,
 )
@@ -115,11 +115,31 @@ class MeView(BaseAPIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = MeSerializer(request.user)
+        serializer = UserAccountSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class IdentifyView(BaseAPIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+
+        serializer = EmailSerializer(data=request.data)
+        if not serializer.is_valid():
+            raise ValidationError(serializer.errors)
+
+        input_email = serializer.validated_data["email"]
+
+        try:
+            user = User.objects.get(email=input_email)
+        except User.DoesNotExist:
+            raise ValidationError({"detail": "Usuario no encontrado"})
+
+        serializer = UserAccountSerializer(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class IdentifyEmailView(BaseAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -140,7 +160,7 @@ class IdentifyView(BaseAPIView):
 
 
 class ScanningView(BaseAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
 
     def post(self, request):
         serializer = ScanningSerializer(data=request.data)
@@ -148,7 +168,12 @@ class ScanningView(BaseAPIView):
             raise ValidationError(serializer.errors)
 
         account_id = serializer.validated_data["account_id"]
-        user = request.user
+        user_id = serializer.validated_data["user_id"]
+
+        user = User.objects.get(id=user_id)
+
+        if not user:
+            raise ValidationError({"detail": "Usuario no encontrado"})
 
         if user.total_invoices_scanned >= user.maximum_scanned_invoices:
             raise APIException(

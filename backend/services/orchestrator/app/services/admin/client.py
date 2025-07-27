@@ -19,7 +19,7 @@ class AdminService:
         )
 
     async def register_scan(self, user_id: int, account_id: int) -> dict:
-        url = f"{self.path}/auth/users/register-scan/"
+        url = f"{self.path}/user/scanning/"
         logger.debug(f"Registrando escaneo en: {url}")
         data = {"user_id": user_id, "account_id": account_id}
         try:
@@ -66,7 +66,7 @@ class AdminService:
             )
 
     async def identify_accounts(self, email: str) -> IdentifyAccountsResponse:
-        url = f"{self.path}/auth/users/identify/"
+        url = f"{self.path}/auth/identify/"
         logger.debug(f"Autenticando email en: {url}")
 
         try:

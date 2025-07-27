@@ -48,7 +48,9 @@ def error_interceptor(func):
 
         except httpx.ConnectError as e:
             logger.error(f"[OdooConnectionError] {e}")
-            raise OdooConnectionError()
+            raise OdooConnectionError(
+                message=f"[OdooConnectionError] No se pudo conectar con el microservicio de Odoo"
+            )
 
         except httpx.RequestError as e:
             logger.error(f"[OdooRequestError] {e}")

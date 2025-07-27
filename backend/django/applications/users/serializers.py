@@ -14,7 +14,7 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         return User.objects.create_user(**validated_data)
 
 
-class MeSerializer(serializers.ModelSerializer):
+class UserAccountSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(source="id")
     accounts = AccountSerializer(many=True, read_only=True)
 
@@ -32,4 +32,5 @@ class EmailSerializer(serializers.ModelSerializer):
 
 
 class ScanningSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
     account_id = serializers.IntegerField()
