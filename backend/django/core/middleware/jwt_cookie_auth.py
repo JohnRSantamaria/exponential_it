@@ -16,7 +16,6 @@ class JWTRefreshCookieAuthenticationMiddleware(MiddlewareMixin):
             return
 
         try:
-            # Validar el refresh token
             token = RefreshToken(refresh_token)
             user_id = token["user_id"]
             user = User.objects.get(id=user_id)
