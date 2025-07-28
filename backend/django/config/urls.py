@@ -16,9 +16,16 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import path, include
 
 urlpatterns = [
+    path(
+        "",
+        lambda request: HttpResponse(
+            "✅ Django está funcionando a través de Cloudflare Tunnel"
+        ),
+    ),
     path("admin/", admin.site.urls),
     path("auth/", include("users.auth_urls")),
     path("user/", include("users.urls")),

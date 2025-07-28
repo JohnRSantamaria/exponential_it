@@ -8,7 +8,13 @@ from decouple import Csv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-HOST = config("HOST", default="15.236.59.110,15.188.6.72,admin-django", cast=Csv())
+HOST = config(
+    "HOST",
+    default="15.236.59.110,15.188.6.72,admin-django,api.exponentialit.net",
+    cast=Csv(),
+)
+
+
 ALLOWED_HOSTS = HOST
 
 
