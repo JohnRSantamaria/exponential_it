@@ -29,22 +29,30 @@ class LoginView(BaseAPIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        email = request.data.get("email")
-        password = request.data.get("password")
+        try:
+            email = request.data.get("email")
+            password = request.data.get("password")
 
-        user = authenticate(request, username=email, password=password)
-        if not user:
-            raise ValidationError({"detail": "Credenciales inválidas"})
+            user = authenticate(request, username=email, password=password)
+            if not user:
+                raise ValidationError({"detail": "Credenciales inválidas"})
 
-        if not user.is_active:
-            raise APIException("Cuenta desactivada. Contacte al administrador.")
+            if not user.is_active:
+                raise APIException("Cuenta desactivada. Contacte al administrador.")
 
-        response = Response({"detail": "Login exitoso"}, status=status.HTTP_200_OK)
-        set_jwt_cookies(response, user)
+            response = Response({"detail": "Login exitoso"}, status=status.HTTP_200_OK)
+            set_jwt_cookies(response, user)
 
-        user.last_activity = timezone.now()
-        user.save(update_fields=["last_activity"])
-        return response
+            user.last_activity = timezone.now()
+            user.save(update_fields=["last_activity"])
+            return response
+
+        except Exception as e:
+            import traceback
+
+            print("🔥 ERROR LOGIN:", e)
+            print(traceback.format_exc())
+            raise APIException(f"Error inesperado: {str(e)}")
 
 
 class LogoutView(BaseAPIView):

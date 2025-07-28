@@ -17,8 +17,10 @@ class JWTRefreshCookieAuthenticationMiddleware(MiddlewareMixin):
 
         try:
             token = RefreshToken(refresh_token)
-            user_id = token["user_id"]
+            user_id = token.get("user_id")
             user = User.objects.get(id=user_id)
             request.user = user
-        except (TokenError, User.DoesNotExist):
+        except Exception as e:
+            # Loguea el error pero no rompas la request
+            print(f"⚠️ JWT Middleware error: {e}")
             request.user = AnonymousUser()
