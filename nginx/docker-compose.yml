@@ -4,7 +4,7 @@ services:
             context: .
             dockerfile: Dockerfile
         ports:
-            - '80:80'
+            - "80:80"
         volumes:
             - ../backend/django/config/staticfiles:/static:ro
         networks:

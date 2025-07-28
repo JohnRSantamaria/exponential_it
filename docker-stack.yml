@@ -1,7 +1,7 @@
 services:
 
   admin-django:    
-    image: exponentialit/admin_django:v1.1.0-beta
+    
     secrets: 
       - regcred
     env_file:
@@ -18,7 +18,7 @@ services:
         constraints: [node.role == manager]
 
   orchestrator: 
-    image: exponentialit/orchestrator:v1.1.0-beta
+    
     env_file:
       - ./backend/services/orchestrator/.env.prod
     volumes:
@@ -31,7 +31,7 @@ services:
         condition: on-failure      
 
   zoho-integration: 
-    image: exponentialit/zoho_integration:v1.1.0-beta   
+    
     env_file:
       - ./backend/services/zoho_integration/.env.prod
     volumes:
@@ -44,7 +44,7 @@ services:
         condition: on-failure                 
 
   openai-integration: 
-    image: exponentialit/openai_integration:v1.1.0-beta   
+    
     env_file:
       - ./backend/services/openai_integration/.env.prod
     volumes:
@@ -57,7 +57,7 @@ services:
         condition: on-failure    
 
   odoo-integration: 
-    image: exponentialit/odoo_integration:v1.1.0-beta   
+    
     env_file:
       - ./backend/services/odoo_integration/.env.prod
     volumes:
@@ -70,7 +70,6 @@ services:
         condition: on-failure    
 
   nginx:
-    image: exponentialit/nginx:v1.1.0-beta
     ports:
       - "80:80"
     volumes:

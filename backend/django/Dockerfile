@@ -1,9 +1,6 @@
-# Versión estable de Python sobre Alpine
 FROM python:3.13-alpine
-
 # Directorio de trabajo
 WORKDIR /app
-
 # Configuración de entorno
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
