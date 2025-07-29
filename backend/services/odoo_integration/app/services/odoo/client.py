@@ -136,7 +136,12 @@ class AsyncOdooClient:
         return await self.call(model, "create", [data])
 
     async def read(self, model, domain, fields=None):
-        return await self.call(model, "search_read", [domain], {"fields": fields or []})
+        return await self.call(
+            model=model,
+            method="search_read",
+            args=[domain],
+            kwargs={"fields": fields or []},
+        )
 
     async def update(self, model, ids, data):
         return await self.call(model, "write", [ids, data])

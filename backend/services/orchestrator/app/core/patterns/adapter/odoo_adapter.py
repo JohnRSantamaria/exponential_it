@@ -93,12 +93,28 @@ class OdooAdapter(AccountingProvider):
         headers = {"x-client-vat": self.company_vat}
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
-            reponse = await client.post(
+            response = await client.post(
                 url=url,
                 headers=headers,
                 json=payload.model_dump(
                     mode="json",
                     exclude_none=True,
                 ),
+            )
+        return response.json()
+
+    @error_interceptor
+    async def attach_file_to_bill(self, bill_id, file, file_content):
+        url = f"{self.path}/attachment?invoice_id={bill_id}"
+        logger.info(url)
+
+        headers = {"x-client-vat": self.company_vat}
+        files = {"file": (file.filename, file_content, file.content_type)}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            reponse = await client.post(
+                url=url,
+                headers=headers,
+                files=files,
             )
         return reponse.json()

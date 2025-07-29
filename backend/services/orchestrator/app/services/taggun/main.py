@@ -15,10 +15,8 @@ from app.core.secrets import SecretsService
 async def handle_invoice_scan(
     recipient: str, file: UploadFile, file_content: bytes | None = None
 ):
-    logger.debug(f"[{file.filename}] Inicia el proceso")
     file_content = file_content or await file.read()
-
-    logger.debug(f"Inicia el Extraccion de datos para : {recipient}")
+    logger.info(f"Inicia el Extraccion de {file.filename} para : {recipient}")
     accounts_response = await get_accounts_by_email(email=recipient)
     all_tax_ids = [a.account_tax_id for a in accounts_response.accounts]
 
@@ -28,21 +26,22 @@ async def handle_invoice_scan(
 
     payload_text = payload.get("text", {}).get("text", "")
     company_vat, partner_vat, extractor = find_tax_ids(payload_text, all_tax_ids)
-    logger.debug(f"company_vat : {company_vat}")
     taggun_data.partner_vat = partner_vat
-
     account = get_account_match(accounts_response, company_vat, extractor)
 
     await register_scan(
         user_id=accounts_response.user_id,
         account_id=account.account_id,
     )
-    logger.debug("Registro de escaneo completado")
+    logger.info(
+        f"Registro de escaneo completado para {account.account_name} - {account.account_tax_id} "
+    )
 
     secrets_service = await SecretsService(company_vat=company_vat).load()
     invoice_processor = secrets_service.get_invoice_processor()
 
     if invoice_processor == "ZOHO":
+        logger.info(f"Inicia el proceso de Zoho")
         await zoho_process(
             file=file,
             file_content=file_content,
@@ -51,9 +50,11 @@ async def handle_invoice_scan(
         )
     elif invoice_processor == "ODOO":
         odoo_version = secrets_service.get_odoo_version()
-        logger.debug(f"Inicia el proceso de Odoo versión : {odoo_version}")
+        logger.info(f"Inicia el proceso de Odoo versión : {odoo_version}")
         if odoo_version == "V16":
             await odoo_process_v16(
+                file=file,
+                file_content=file_content,
                 taggun_data=taggun_data,
                 company_vat=company_vat,
             )

@@ -1,9 +1,16 @@
+import re
+import difflib
+import base64
+
 from datetime import datetime
+
+from fastapi import UploadFile
+
 from app.core.logging import logger
 from app.services.odoo.client import AsyncOdooClient
-
 from app.services.odoo.schemas.invoice import InvoiceCreateSchemaV18
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
+
 from exponential_core.exceptions import TaxIdNotFoundError
 from exponential_core.odoo import (
     TaxUseEnum,
@@ -13,42 +20,117 @@ from exponential_core.odoo import (
 )
 
 
+def normalize_vat_for_search(vat: str) -> str:
+    return re.sub(r"[^0-9]", "", vat.strip().upper())  # solo números
+
+
 async def get_or_create_supplier(
     company: AsyncOdooClient, supplier_data: SupplierCreateSchema
 ):
+    search_vat = normalize_vat_for_search(supplier_data.vat)
+
     existing = await company.read(
         "res.partner",
-        [["name", "=", supplier_data.name], ["vat", "=", supplier_data.vat]],
-        fields=["id"],
+        [["vat", "ilike", supplier_data.vat]],
+        fields=["id", "vat", "name"],
     )
-    if existing:
-        logger.debug(f"Supplier ya existente: {existing[0]["id"]}")
-        return existing[0]["id"]
 
-    logger.debug(f"Creando Supplier")
+    for partner in existing:
+        vat_db = partner["vat"] or ""
+        vat_db_clean = normalize_vat_for_search(vat_db)
+        if vat_db_clean.startswith(search_vat) or search_vat.startswith(vat_db_clean):
+            logger.debug(
+                f"Supplier encontrado por VAT normalizado: {partner['id']} {partner.get("name","")}"
+            )
+            return partner["id"]
+
+    # 🔹 Si no lo encontró, lo crea
+
+    logger.debug("Creando Supplier")
     payload = clean_enum_payload(supplier_data.as_odoo_payload())
     return await company.create("res.partner", payload)
 
 
+import difflib
+
+
 async def get_or_create_address(
-    company: AsyncOdooClient, address_data: AddressCreateSchema
+    company: AsyncOdooClient,
+    address_data: AddressCreateSchema,
+    similarity_threshold=0.8,
 ):
-    domain = [
+    # Buscar dirección invoice exacta del partner
+    domain_invoice = [
         ["parent_id", "=", address_data.partner_id],
-        ["name", "=", address_data.address_name],
-        ["street", "=", address_data.street],
-        ["city", "=", address_data.city],
-        ["type", "=", address_data.address_type],
+        ["type", "=", "invoice"],
+    ]
+    existing_invoice = await company.read(
+        "res.partner", domain_invoice, fields=["id", "street", "city"]
+    )
+    if existing_invoice:
+        logger.debug(
+            f"Usando dirección invoice existente del partner {address_data.partner_id}: {existing_invoice[0]['id']}"
+        )
+        return existing_invoice[0]["id"]
+
+    # Buscar candidatos
+    domain_flexible = [
+        ["type", "=", "invoice"],
+        ["street", "ilike", address_data.street.split()[0]],
+        ["city", "ilike", address_data.city],
     ]
     if address_data.country_id:
-        domain.append(["country_id", "=", address_data.country_id])
+        domain_flexible.append(["country_id", "=", address_data.country_id])
+    if address_data.zip:
+        domain_flexible.append(["zip", "=", address_data.zip])
 
-    existing = await company.read("res.partner", domain, fields=["id"])
-    if existing:
-        logger.debug(f"Dirección ya existente: {existing[0]["id"]}")
-        return existing[0]["id"]
+    candidates = await company.read(
+        "res.partner", domain_flexible, fields=["id", "street", "city", "zip", "name"]
+    )
 
-    logger.debug(f"Creando dirección")
+    # Calcular similitud fuzzy
+    def similarity_ratio(text1, text2):
+        if not text1 or not text2:
+            return 0.0
+        return difflib.SequenceMatcher(None, text1.lower(), text2.lower()).ratio()
+
+    # Evalua cada candidato y guardar el mejor
+    best_candidate = None
+    best_score = 0.0
+
+    for candidate in candidates:
+        street_score = similarity_ratio(
+            candidate.get("street", ""), address_data.street
+        )
+        city_score = similarity_ratio(candidate.get("city", ""), address_data.city)
+        name_score = similarity_ratio(
+            candidate.get("name", ""), address_data.address_name
+        )
+
+        # Peso total: 50% street, 30% city, 20% name
+        total_score = (street_score * 0.5) + (city_score * 0.3) + (name_score * 0.2)
+
+        # Log de cada candidato
+        logger.debug(
+            f"[CHECK] ID={candidate['id']} | Street='{candidate.get('street')}' "
+            f"| City='{candidate.get('city')}' | Name='{candidate.get('name')}' "
+            f"-> Score={total_score:.2f} (street={street_score:.2f}, city={city_score:.2f}, name={name_score:.2f})"
+        )
+
+        if total_score > best_score:
+            best_score = total_score
+            best_candidate = candidate
+
+    # Si hay un candidato suficientemente similar, usarlo
+    if best_candidate and best_score >= similarity_threshold:
+        logger.debug(
+            f"✅ Usando dirección más similar encontrada (score={best_score:.2f}): "
+            f"{best_candidate['id']} ({best_candidate['street']}, {best_candidate['city']})"
+        )
+        return best_candidate["id"]
+
+    # Si no hay coincidencias fuertes, crear una nueva dirección
+    logger.debug(f"➕ Creando nueva dirección para partner {address_data.partner_id}")
     payload = clean_enum_payload(address_data.as_odoo_payload())
     return await company.create("res.partner", payload)
 
@@ -126,7 +208,53 @@ async def get_or_create_invoice(
     if "date" in payload and isinstance(payload["date"], datetime):
         payload["date"] = parse_to_date(payload.get("date"))
 
-    return await company.create("account.move", payload)
+    invoice_id = await company.create("account.move", payload)
+
+    logger.info(f"Factura creada: {invoice_id}")
+
+    # 4️⃣ Publicar mensaje en el chatter
+    await company.call(
+        "account.move",
+        "message_post",
+        [[invoice_id]],
+        {
+            "body": "<p>🤖 Esta factura fue creada automáticamente con asistencia de AI y debe ser verificada.</p>"
+        },
+    )
+
+    return invoice_id
+
+
+async def attach_file_to_invoice(
+    company: AsyncOdooClient, invoice_id: str, file: UploadFile
+):
+    """
+    Adjunta un archivo PDF o imagen a la factura especificada en Odoo.
+    """
+    # 1️⃣ Leer el archivo y codificar en Base64
+    file_content = await file.read()
+    encoded_file = base64.b64encode(file_content).decode("utf-8")
+    file_name = file.filename
+
+    # 2️⃣ Crear payload con contenido codificado
+    attachment_payload = {
+        "name": file_name,
+        "type": "binary",
+        "datas": encoded_file,  # 🔹 AHORA es Base64 string, no bytes
+        "res_model": "account.move",
+        "res_id": int(invoice_id),
+        "mimetype": (
+            "application/pdf" if file_name.lower().endswith(".pdf") else "image/png"
+        ),
+    }
+
+    # 3️⃣ Crear el attachment en Odoo
+    attachment_id = await company.create("ir.attachment", attachment_payload)
+
+    logger.debug(
+        f"📎 Archivo '{file_name}' adjuntado a la factura ID={invoice_id} (Attachment ID={attachment_id})"
+    )
+    return attachment_id
 
 
 async def get_model_fields(company: AsyncOdooClient, model: str) -> dict:

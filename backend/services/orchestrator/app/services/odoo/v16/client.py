@@ -1,4 +1,5 @@
 from typing import List
+from fastapi import UploadFile
 from pydantic import TypeAdapter
 from datetime import datetime
 from app.core.logging import logger
@@ -190,3 +191,17 @@ async def get_or_create_invoice(
     )
 
     return await odoo_provider.create_bill(payload=payload)
+
+
+async def get_or_attach_document(
+    invoice_id: str,
+    odoo_provider: OdooAdapter,
+    file: UploadFile,
+    file_content: bytes,
+):
+
+    await odoo_provider.attach_file_to_bill(
+        bill_id=invoice_id,
+        file=file,
+        file_content=file_content,
+    )

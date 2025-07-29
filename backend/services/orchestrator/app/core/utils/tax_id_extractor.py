@@ -2,7 +2,7 @@ import difflib
 import re
 from typing import List, Tuple
 from stdnum.eu import vat as vat_validator
-
+from app.core.logging import logger
 from app.core.exceptions import (
     MultipleCompanyTaxIdMatchesError,
     MultiplePartnerTaxIdsError,
@@ -34,6 +34,7 @@ class TaxIdExtractor:
         self.patterns = {
             "cif": r"[A-HJ-NP-SUVW]-?\d{7}[0-9A-J]\b(?![A-Za-z0-9])",
             "vat": r"[A-Za-z]{2}[A-Z0-9]{1}\d{7,8}\b(?![A-Za-z0-9])",
+            "dig": r"(?<!\d)(?:\d[-.,]?){7}\d(?!\d)",
         }
         self.all_tax_ids: List[str] = all_tax_ids
         self.candidates: List[Tuple[str, str]] = self._extract_all_ids()
@@ -74,6 +75,10 @@ class TaxIdExtractor:
                 if TaxIdExtractor._is_valid_cif(valor):
                     valid.append(valor)
                     seen_normalized.add(normalized)
+            elif tipo == "dig":
+                if TaxIdExtractor._is_valid_numeric_cif(valor):
+                    valid.append(valor)
+                    seen_normalized.add(normalized)
 
         return valid
 
@@ -103,6 +108,27 @@ class TaxIdExtractor:
             return control == str(control_digit)
         return control == str(control_digit) or control == letters[control_digit]
 
+    @staticmethod
+    def _is_valid_numeric_cif(number: str) -> bool:
+        """
+        Valida un CIF que contiene solo 8 dígitos (sin letra inicial ni final),
+        aplicando la lógica estándar de dígito de control de CIF.
+        """
+        if not re.match(r"^\d{8}$", number):
+            return False
+
+        digits = number[:7]
+        control = number[-1]
+
+        # Cálculo del dígito de control
+        suma_par = sum(int(digits[i]) for i in range(1, 7, 2))
+        suma_impar = sum(
+            int(c) for i in range(0, 7, 2) for c in str(int(digits[i]) * 2)
+        )
+        control_digit = (10 - (suma_par + suma_impar) % 10) % 10
+
+        return control == str(control_digit)
+
     def _extract_all_ids(self) -> List[Tuple[str, str]]:
         """
         Extrae todas las identificaciones fiscales del texto y elimina duplicados.
@@ -122,12 +148,16 @@ class TaxIdExtractor:
     def _are_similar(self, a: str, b: str, threshold: float = 0.9) -> bool:
         """
         Compara dos identificadores fiscales eliminando prefijos como ES, y mide su similitud.
+        Imprime el valor de la similitud para depuración.
         """
         if not a or not b:
             return False
+
         a_norm = self.normalize_tax_id(a)
         b_norm = self.normalize_tax_id(b)
-        return difflib.SequenceMatcher(None, a_norm, b_norm).ratio() >= threshold
+
+        similarity = difflib.SequenceMatcher(None, a_norm, b_norm).ratio()
+        return similarity >= threshold
 
     def _all_similar(self, items: List[str], threshold: float = 0.9) -> bool:
         if not items:
@@ -150,12 +180,16 @@ class TaxIdExtractor:
         """
         valid_ids = self.valid_tax_ids()
 
-        matches = [
-            tax_id
-            for tax_id in valid_ids
-            for own_id in self.all_tax_ids
-            if self._are_similar(tax_id, own_id, self.similarity_threshold)
-        ]
+        matches = []
+        for tax_id in valid_ids:
+            for own_id in self.all_tax_ids:
+                if self._are_similar(tax_id, own_id, self.similarity_threshold):
+                    if not any(
+                        self._are_similar(tax_id, m, self.similarity_threshold)
+                        for m in matches
+                    ):
+                        matches.append(tax_id)
+                    break
 
         if len(matches) == 1:
             return matches[0]

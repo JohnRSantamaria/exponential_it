@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 
 from app.api.dependencies import get_company
 from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.operations import (
+    attach_file_to_invoice,
     get_model_fields,
     get_or_create_address,
     get_or_create_invoice,
@@ -106,3 +107,16 @@ async def required_fields(
 ):
     fields = await get_required_fields(company=company, model=model)
     return {"fields": fields}
+
+
+@router.post("/attachment")
+async def attach_file_to_bill(
+    company: AsyncOdooClient = Depends(get_company),
+    file: UploadFile = File(...),
+    invoice_id: str = Query(..., description="Id de la factura existente"),
+):
+
+    attachment_id = await attach_file_to_invoice(
+        company=company, invoice_id=invoice_id, file=file
+    )
+    return {"attachment_id": attachment_id}
