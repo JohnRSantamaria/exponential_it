@@ -22,8 +22,6 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [f"http://{h}" for h in HOST]
 
 CSRF_TRUSTED_ORIGINS = [
-    "http://127.0.0.1:3000",
-    "http://localhost:3000",
     "https://15.236.59.110",
     "https://15.188.6.72",
     "https://admin-django",
