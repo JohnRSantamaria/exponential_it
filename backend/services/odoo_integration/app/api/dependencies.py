@@ -17,6 +17,7 @@ async def get_company(client_vat: str = Depends(get_client_vat)) -> AsyncOdooCli
         db=secrets_service.get_db(),
         username=secrets_service.get_username(),
         api_key=secrets_service.get_api_key(),
+        company_id=secrets_service.get_company_id(),
     )
 
     await client.authenticate()

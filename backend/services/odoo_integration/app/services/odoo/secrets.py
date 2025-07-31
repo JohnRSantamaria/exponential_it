@@ -34,7 +34,12 @@ class SecretsService:
     def get_tax_id(self) -> int | bool:
         if self._secrets is None:
             return ""
-        return self._secrets.get("ODOO_TAX_ID") or ""
+        return self._secrets.get("ODOO_TAX_ID", "")
+
+    def get_company_id(self) -> int:
+        if self._secrets is None:
+            return ""
+        return self._secrets.get("COMPANY_ID_ODOO", "")
 
     def _get_required(self, key: str) -> str:
         if self._secrets is None:

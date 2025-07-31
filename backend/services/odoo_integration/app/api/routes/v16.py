@@ -4,6 +4,7 @@ from app.api.dependencies import get_company
 from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.operations import (
     attach_file_to_invoice,
+    get_companies,
     get_model_fields,
     get_or_create_address,
     get_or_create_invoice,
@@ -120,3 +121,8 @@ async def attach_file_to_bill(
         company=company, invoice_id=invoice_id, file=file
     )
     return {"attachment_id": attachment_id}
+
+
+@router.get("/companies")
+async def get_all_Companies(company: AsyncOdooClient = Depends(get_company)):
+    return await get_companies(company)

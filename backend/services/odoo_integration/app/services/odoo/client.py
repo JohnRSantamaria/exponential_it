@@ -9,11 +9,12 @@ logger = get_logger()
 
 
 class AsyncOdooClient:
-    def __init__(self, url, db, username, api_key):
+    def __init__(self, url, db, username, api_key, company_id):
         self.url = url
         self.db = db
         self.username = username
         self.api_key = api_key
+        self.company_id = company_id
         self.jsonrpc_url = f"{url}/jsonrpc"
         self.uid = None
         self.timeout = httpx.Timeout(

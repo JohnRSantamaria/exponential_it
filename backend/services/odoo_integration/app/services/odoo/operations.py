@@ -138,7 +138,11 @@ async def get_or_create_address(
 async def get_tax_ids(company: AsyncOdooClient) -> list[dict]:
     taxes = await company.read(
         "account.tax",
-        [["type_tax_use", "=", "purchase"]],
+        [
+            ["type_tax_use", "=", "purchase"],
+            ["active", "=", True],
+            ["company_id.id", "=", company.company_id],
+        ],
         fields=["id", "name", "amount", "type_tax_use", "active"],
     )
     return taxes
@@ -307,3 +311,22 @@ async def get_required_fields(company: AsyncOdooClient, model: str) -> dict:
         for name, meta in fields.items()
         if meta.get("required")
     }
+
+
+async def get_companies(
+    company: AsyncOdooClient, name_filter: str | None = None
+) -> list[dict]:
+    """
+    Obtiene todas las compañías asociadas al cliente Odoo.
+    Si se pasa name_filter, filtra las compañías cuyo nombre contenga ese texto.
+    """
+    domain = []
+    if name_filter:
+        domain.append(["name", "ilike", name_filter])
+
+    companies = await company.read(
+        model="res.company",
+        domain=domain,
+        fields=["id", "name"],  # ✅ Retornar solo campos necesarios
+    )
+    return companies
