@@ -22,8 +22,11 @@ class TaggunProcess:
         file_content: bytes,
         taggun_service: TaggunService,
     ):
+        """
+        Fábrica de instancias con validación.
+        """
         if not file_content:
-            raise FileProcessingError()
+            raise FileProcessingError("El archivo no tiene contenido válido.")
 
         return cls(
             file=file,
@@ -32,10 +35,11 @@ class TaggunProcess:
         )
 
     async def run_orc(self) -> Dict:
-        payload = await self.taggun_service.ocr_taggun(
+        """
+        Ejecuta OCR usando el cliente de Taggun.
+        """
+        return await self.taggun_service.ocr_taggun(
             content_type=self.file.content_type,
             file_content=self.data_file,
             file_name=self.file.filename,
         )
-
-        return payload

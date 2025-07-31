@@ -2,6 +2,7 @@ import asyncio
 from fastapi import UploadFile
 from app.services.odoo.v16.processor import odoo_process as odoo_process_v16
 from app.services.odoo.v18.processor import odoo_process as odoo_process_v18
+from app.services.taggun.utils.valid_size import validate_image_dimensions
 from app.services.upload.process import save_file_dropbox
 from app.services.zoho.processor import zoho_process
 from .ocr import extract_ocr_payload, extract_taggun_data
@@ -17,6 +18,9 @@ async def handle_invoice_scan(
 ):
     file_content = file_content or await file.read()
     logger.info(f"Inicia el Extraccion de {file.filename} para : {recipient}")
+
+    validate_image_dimensions(file.filename, file_content)
+
     accounts_response = await get_accounts_by_email(email=recipient)
     all_tax_ids = [a.account_tax_id for a in accounts_response.accounts]
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Form, File, UploadFile, status
 from typing import List
 from app.services.taggun.main import handle_invoice_scan, handle_multiple_invoice_scans
+from app.core.logging import logger
 
 router = APIRouter()
 
