@@ -26,16 +26,22 @@ class TaxIdExtractor:
     ):
         self.text = text
         self.text_cleaned = re.sub(
-            r"([A-HJ-NP-SUVW])\s?(\d{2})\s?(\d{4})\s?(\d{1,2})\b",
-            r"\1\2\3\4",
+            r"\b([A-HJ-NP-SUVW])\s?(\d{1,2})\s?(\d{3})\s?(\d{3})([0-9A-J])\b",
+            r"\1\2\3\4\5",
             self.text,
         )
         self.similarity_threshold = similarity_threshold
         self.patterns = {
             "cif": r"[A-HJ-NP-SUVW]-?\d{7}[0-9A-J]\b(?![A-Za-z0-9])",
+            "cif2": r"[A-HJ-NP-SUVW](?:-| )?(?:\d{8}|\d{2}\.?\d{3}\.?\d{3})",
+            # VAT: no aplica puntos de miles ni guiones, se deja igual
             "vat": r"[A-Za-z]{2}[A-Z0-9]{1}\d{7,8}\b(?![A-Za-z0-9])",
-            "dig": r"(?<!\d)(?:\d[-.,]?){7}\d(?!\d)",
+            # NIF: ya soporta puntos y guion opcional antes de la letra de control
+            "nif": r"(?:\d{8}|\d{1,2}\.?\d{3}\.?\d{3})(?:-)?[TRWAGMYFPDXBNJZSQVHLCKE]\b(?![A-Za-z0-9])",
+            # DIG: ahora soporta formato XX.XXX.XXX o 8 dígitos
+            "dig": r"(?<!\d)(?:\d{8}|\d{1,2}\.?\d{3}\.?\d{3})(?!\d)",
         }
+
         self.all_tax_ids: List[str] = all_tax_ids
         self.candidates: List[Tuple[str, str]] = self._extract_all_ids()
 
@@ -71,12 +77,16 @@ class TaxIdExtractor:
                         seen_normalized.add(normalized)
                 except Exception:
                     continue
-            elif tipo == "cif":
+            elif tipo == "cif" or tipo == "cif2":
                 if TaxIdExtractor._is_valid_cif(valor):
                     valid.append(valor)
                     seen_normalized.add(normalized)
             elif tipo == "dig":
                 if TaxIdExtractor._is_valid_numeric_cif(valor):
+                    valid.append(valor)
+                    seen_normalized.add(normalized)
+            elif tipo == "nif":
+                if TaxIdExtractor._is_valid_nif(valor):
                     valid.append(valor)
                     seen_normalized.add(normalized)
 
@@ -109,6 +119,23 @@ class TaxIdExtractor:
         return control == str(control_digit) or control == letters[control_digit]
 
     @staticmethod
+    def _is_valid_nif(nif: str) -> bool:
+        """
+        Valida un NIF español de persona física (DNI con letra de control).
+        """
+        nif = nif.upper().replace(".", "").replace("-", "")
+
+        # Debe ser 8 dígitos seguidos de una letra válida
+        if not re.match(r"^\d{8}[TRWAGMYFPDXBNJZSQVHLCKE]$", nif):
+            return False
+
+        letras = "TRWAGMYFPDXBNJZSQVHLCKE"
+        numero = int(nif[:8])
+        letra_control = nif[-1]
+
+        return letras[numero % 23] == letra_control
+
+    @staticmethod
     def _is_valid_numeric_cif(number: str) -> bool:
         """
         Valida un CIF que contiene solo 8 dígitos (sin letra inicial ni final),
@@ -139,7 +166,7 @@ class TaxIdExtractor:
         for tipo, pattern in self.patterns.items():
             matches = re.findall(pattern, self.text_cleaned)
             for match in matches:
-                cleaned = match.replace("-", "")
+                cleaned = match.replace("-", "").replace(".", "")
                 if cleaned not in seen:
                     ids.append((tipo, cleaned))
                     seen.add(cleaned)

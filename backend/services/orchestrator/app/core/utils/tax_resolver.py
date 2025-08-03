@@ -1,5 +1,6 @@
-from typing import Set, Tuple
+from typing import Set
 from app.services.zoho.exceptions import TaxPercentageNotFound
+from app.core.logging import logger
 
 TAX_STANDARD_RATES = (0.0, 4.0, 10.0, 21.0)
 
@@ -31,7 +32,18 @@ class TaxCalculator:
                 return standard
         return rounded
 
-    def reorder(self, amount_untaxed: float, amount_total: float, amount_tax: float):
+    def reorder(
+        self,
+        amount_untaxed: float,
+        amount_total: float,
+        amount_tax: float,
+        amount_discount: float | None = None,
+    ):
+        """What if exist an discound"""
+        if amount_discount > 0 or amount_discount:
+            logger.warning("Se dectecto un descuento en la factura.")
+            amount_total = amount_untaxed + amount_tax
+
         """Reorder amounts to ensure total ≥ untaxed ≥ tax."""
         if amount_total <= 0 and amount_untaxed <= 0 and amount_tax <= 0:
             raise TaxPercentageNotFound(
@@ -92,7 +104,7 @@ class TaxCalculator:
             self.amount_total = values[0]
             self.amount_untaxed = values[1]
             self.amount_tax = self.amount_total - self.amount_untaxed
-        elif amount_total > 0 and amount_untaxed <= 0 and amount_tax <= 0: 
+        elif amount_total > 0 and amount_untaxed <= 0 and amount_tax <= 0:
             self.amount_untaxed = amount_total
             self.amount_tax = 0.0
         else:
@@ -121,7 +133,12 @@ class TaxCalculator:
             self._raise_error()
 
         # Reordenar: garantiza que total ≥ untaxed ≥ tax
-        self.reorder(self.amount_untaxed, self.amount_total, self.amount_tax)
+        self.reorder(
+            amount_untaxed=self.amount_untaxed,
+            amount_total=self.amount_total,
+            amount_tax=self.amount_tax,
+            amount_discount=self.amount_discount,
+        )
 
         u, t, tx = self.amount_untaxed, self.amount_total, self.amount_tax
 

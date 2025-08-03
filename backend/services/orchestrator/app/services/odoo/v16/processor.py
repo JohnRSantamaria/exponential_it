@@ -3,6 +3,7 @@ from app.core.settings import settings
 from app.core.client_provider import ProviderConfig
 from app.core.patterns.adapter.base import get_provider
 from app.core.schemas.enums import ServicesEnum
+from app.services.odoo.exceptions import OdooTaxIdNotFound
 from app.services.odoo.secrets import SecretsServiceOdoo
 from app.services.openai.client import OpenAIService
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
@@ -30,6 +31,18 @@ async def odoo_process(
     )
     config = ProviderConfig(server_url=settings.URL_OPENAPI)
     openai_service = OpenAIService(config=config)
+
+    # Verificación invoice_number
+    invoice_number = taggun_data.invoice_number
+    partner_name = taggun_data.partner_name
+    if not invoice_number:
+
+        cif = await openai_service.search_cif_by_partner(partner_name=partner_name)
+        cif = cif.get("CIF", "0")
+        if cif == "0":
+            raise OdooTaxIdNotFound()
+        else:
+            taggun_data.invoice_number = cif
 
     # Creación del proveedor
     logger.info("Creando u obteniendo al proveedor.")

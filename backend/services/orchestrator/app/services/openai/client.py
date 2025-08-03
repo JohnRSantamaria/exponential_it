@@ -11,6 +11,7 @@ from app.services.openai.schemas.classification_tax_request import (
     ClasificacionRequest,
     TaxIdResponseSchema,
 )
+from app.services.openai.schemas.search_cif import PartnerRequest
 
 
 class OpenAIService:
@@ -73,4 +74,41 @@ class OpenAIService:
         except Exception as exc:
             raise CustomAppException(
                 f"Error inesperado al clasificar con OpenAI: {exc}"
+            )
+
+    async def search_cif_by_partner(self, partner_name: str) -> dict:
+        """
+        Llama al endpoint de OpenAI para buscar el CIF de una empresa.
+        Retorna {"CIF": "..."} o {"CIF": "0"} si no se encuentra.
+        """
+        url = f"{self.path}/search_cif_by_partner"
+        logger.debug(f"Buscando CIF en OpenAI: {url} con partner_name={partner_name}")
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(url, json={"partner_name": partner_name})
+
+            response.raise_for_status()
+
+            data = response.json()
+            # Asegura que siempre retorne el campo CIF
+            if not isinstance(data, dict) or "CIF" not in data:
+                logger.warning(
+                    "⚠️ Respuesta inválida de OpenAI, usando valor por defecto."
+                )
+                return {"CIF": "0"}
+
+            return data
+
+        except httpx.ReadTimeout:
+            raise CustomAppException(
+                "Tiempo de espera excedido al buscar CIF con OpenAI"
+            )
+
+        except httpx.RequestError as exc:
+            raise CustomAppException(f"Error de conexión con OpenAI: {exc}")
+
+        except Exception as exc:
+            raise CustomAppException(
+                f"Error inesperado al buscar CIF con OpenAI: {exc}"
             )

@@ -82,6 +82,7 @@ class TaggunExtractor:
             amount_tax=amount_tax,
             amount_untaxed=amount_untaxed,
             amount_total=amount_total,
+            amount_discount=amount_discount,
         )
 
         for item in raw_items:
@@ -129,10 +130,6 @@ class TaggunExtractor:
             ["entities", "invoiceNumber", "data"],
         )
 
-        logger.debug(f"invoice_number: {invoice_number}")
-        if not invoice_number:
-            raise FieldNotFoundError("invoice_number")
-
         amount_total = self.safe_float(self.try_paths(["totalAmount", "data"]))
         amount_tax = self.safe_float(self.try_paths(["taxAmount", "data"]))
         amount_untaxed = self.safe_float(self.try_paths(["paidAmount", "data"]))
@@ -148,6 +145,7 @@ class TaggunExtractor:
             amount_total=amount_total,
             amount_untaxed=amount_untaxed,
             amount_tax=amount_tax,
+            amount_discount=amount_discount,
         )
 
         address = self.extract_address()

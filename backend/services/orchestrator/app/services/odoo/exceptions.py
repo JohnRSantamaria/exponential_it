@@ -31,4 +31,4 @@ class OdooTaxIdNotFound(OdooServiceError):
         message="Error No se pudo de terminar un tax id valido en Odoo",
         data=None,
     ):
-        super().__init__(message=message, data=data, status_code=404)
+        super().__init__(message=message, data=data)

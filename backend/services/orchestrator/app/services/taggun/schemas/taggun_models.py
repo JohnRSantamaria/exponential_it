@@ -26,7 +26,7 @@ class TaggunExtractedInvoice(BaseModel):
     partner_name: str
     partner_vat: str
     date: Optional[date]
-    invoice_number: str
+    invoice_number: Optional[str]
     amount_total: float
     amount_tax: float
     amount_untaxed: float
