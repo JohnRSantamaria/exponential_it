@@ -136,6 +136,11 @@ async def get_or_create_address(
 
 
 async def get_tax_ids(company: AsyncOdooClient) -> list[dict]:
+
+    logger.debug(
+        f"Buscando las taxes asociadas a la compañia con id : { company.company_id}"
+    )
+
     taxes = await company.read(
         "account.tax",
         [
@@ -145,6 +150,10 @@ async def get_tax_ids(company: AsyncOdooClient) -> list[dict]:
         ],
         fields=["id", "name", "amount", "type_tax_use", "active"],
     )
+
+    logger.debug("Taxes encontradas".center(50, "*"))
+    logger.debug(f"total : {len(taxes)}")
+
     return taxes
 
 

@@ -1,6 +1,7 @@
 # app/core/settings.py
 import os
 from pathlib import Path
+from typing import List
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
 
@@ -40,6 +41,8 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = ""
     CRYPTO_KEY: str = ""
     TAGGUN_APIKEY: str = ""
+
+    TAX_STANDARD_RATES: List = (0.0, 4.0, 10.0, 21.0)
 
     @field_validator("ERROR_LOG_FILE", mode="before")
     @classmethod

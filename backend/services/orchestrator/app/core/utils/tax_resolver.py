@@ -1,8 +1,7 @@
 from typing import Set
+from app.core.settings import settings
 from app.services.zoho.exceptions import TaxPercentageNotFound
 from app.core.logging import logger
-
-TAX_STANDARD_RATES = (0.0, 4.0, 10.0, 21.0)
 
 
 class TaxCalculator:
@@ -27,7 +26,7 @@ class TaxCalculator:
     @staticmethod
     def normalize(value: float, tolerance: float = 0.03) -> float:
         rounded = round(value, 2)
-        for standard in TAX_STANDARD_RATES:
+        for standard in settings.TAX_STANDARD_RATES:
             if abs(rounded - standard) <= tolerance:
                 return standard
         return rounded
@@ -70,7 +69,7 @@ class TaxCalculator:
             percentage = (amount_tax / amount_untaxed) * 100
             normalized = self.normalize(percentage)
 
-            if normalized in TAX_STANDARD_RATES:
+            if normalized in settings.TAX_STANDARD_RATES:
                 self.amount_total = amount_untaxed + amount_tax
                 amount_total = amount_untaxed + amount_tax
             else:
@@ -119,7 +118,7 @@ class TaxCalculator:
 
     def _add_candidate(self, percentage: float) -> None:
         normalized = self.normalize(percentage)
-        if normalized in TAX_STANDARD_RATES:
+        if normalized in settings.TAX_STANDARD_RATES:
             self.candidates.add(normalized)
 
     def _compute_percentage(self, untaxed: float, tax: float) -> None:
@@ -131,14 +130,6 @@ class TaxCalculator:
     def calculate(self) -> Set[float]:
         if not self.majority_gate():
             self._raise_error()
-
-        # Reordenar: garantiza que total ≥ untaxed ≥ tax
-        self.reorder(
-            amount_untaxed=self.amount_untaxed,
-            amount_total=self.amount_total,
-            amount_tax=self.amount_tax,
-            amount_discount=self.amount_discount,
-        )
 
         u, t, tx = self.amount_untaxed, self.amount_total, self.amount_tax
 
