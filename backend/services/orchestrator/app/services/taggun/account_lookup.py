@@ -9,6 +9,7 @@ from app.core.logging import logger
 async def get_accounts_by_email(email: str):
     adm_service = AdminService(config=ProviderConfig(server_url=settings.URL_ADMIN))
     try:
+        logger.debug(f"Buscando el email : {email}")
         response = await adm_service.identify_accounts(email=email)
         logger.debug(response.model_dump(mode="json", exclude_none=True))
 
