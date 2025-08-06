@@ -122,9 +122,9 @@ class TaggunExtractor:
 
         # Casos inválidos: todo cero o iguales
         if amount_total <= 0 and amount_untaxed <= 0 and amount_tax <= 0:
-            raise TaxPercentageNotFound(data={...})
+            raise TaxPercentageNotFound()
         if amount_total == amount_untaxed == amount_tax:
-            raise TaxPercentageNotFound(data={...})
+            raise TaxPercentageNotFound()
 
         # Si falta untaxed, lo calculamos
         if amount_untaxed <= 0 and amount_total > 0 and amount_tax > 0:
