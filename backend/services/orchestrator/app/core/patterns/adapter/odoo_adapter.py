@@ -88,7 +88,7 @@ class OdooAdapter(AccountingProvider):
     @error_interceptor
     async def create_bill(self, payload: InvoiceCreateSchema):
         url = f"{self.path}/register-invoice"
-        logger.debug(url)
+        logger.debug(f"url {url} \ncompany_vat:{self.company_vat}")
 
         headers = {"x-client-vat": self.company_vat}
 

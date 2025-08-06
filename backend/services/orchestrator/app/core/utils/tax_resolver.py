@@ -131,8 +131,20 @@ class TaxCalculator:
         if not self.majority_gate():
             self._raise_error()
 
-        u, t, tx = self.amount_untaxed, self.amount_total, self.amount_tax
+        u, t, tx, d = (
+            self.amount_untaxed,
+            self.amount_total,
+            self.amount_tax,
+            self.amount_discount,
+        )
 
+        # Caso: hay descuento (d > 0)
+        if d > 0 and u > 0 and tx > 0:
+            if abs(u - d + tx - t) > 0.3:
+                self._raise_error()
+            self._compute_percentage(u, tx)
+            return self.candidates
+        # Sin descuento
         if t > 0 and u > 0 and tx > 0:
             if abs(u + tx - t) > 0.3:
                 self._raise_error()

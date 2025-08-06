@@ -144,7 +144,7 @@ async def get_tax_ids(company: AsyncOdooClient) -> list[dict]:
     taxes = await company.read(
         "account.tax",
         [
-            ["type_tax_use", "=", "purchase"],
+            ["type_tax_use", "=", "sale"],
             ["active", "=", True],
             ["company_id.id", "=", company.company_id],
         ],

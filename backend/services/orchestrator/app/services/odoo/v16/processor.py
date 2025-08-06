@@ -23,20 +23,21 @@ async def odoo_process(
     file_content: bytes,
     taggun_data: TaggunExtractedInvoice,
     company_vat: str,
+    openai_service: OpenAIService,
 ):
+    config = ProviderConfig(server_url=settings.URL_OPENAPI)
+    openai_service = OpenAIService(config=config)
+
     odoo_provider = get_provider(
         service=ServicesEnum.ODOO,
         company_vat=company_vat,
         version="v16",
     )
-    config = ProviderConfig(server_url=settings.URL_OPENAPI)
-    openai_service = OpenAIService(config=config)
 
     # Verificación invoice_number
     invoice_number = taggun_data.invoice_number
     partner_name = taggun_data.partner_name
     if not invoice_number:
-
         cif = await openai_service.search_cif_by_partner(partner_name=partner_name)
         cif = cif.get("CIF", "0")
         if cif == "0":

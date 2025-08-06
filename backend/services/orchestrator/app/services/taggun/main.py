@@ -1,21 +1,25 @@
 import asyncio
+
 from fastapi import UploadFile
+
+from app.core.logging import logger
+from app.core.secrets import SecretsService
+from app.services.zoho.processor import zoho_process
+from app.services.upload.process import save_file_dropbox
+from app.services.taggun.utils.valid_size import validate_image_dimensions
 from app.services.odoo.v16.processor import odoo_process as odoo_process_v16
 from app.services.odoo.v18.processor import odoo_process as odoo_process_v18
-from app.services.taggun.utils.valid_size import validate_image_dimensions
-from app.services.upload.process import save_file_dropbox
-from app.services.zoho.processor import zoho_process
+
 from .ocr import extract_ocr_payload, extract_taggun_data
 from .account_lookup import get_accounts_by_email
 from .tax_id_matching import find_tax_ids, get_account_match
 from .register import register_scan
-from app.core.logging import logger
-from app.core.secrets import SecretsService
 
 
 async def handle_invoice_scan(
     recipient: str, file: UploadFile, file_content: bytes | None = None
 ):
+
     file_content = file_content or await file.read()
     logger.info(f"Inicia el Extraccion de {file.filename} para : {recipient}")
 
@@ -25,12 +29,19 @@ async def handle_invoice_scan(
     all_tax_ids = [a.account_tax_id for a in accounts_response.accounts]
 
     payload = await extract_ocr_payload(file=file, file_content=file_content)
-    logger.info("Comienzo de extracción de datos OCR")
+
+    logger.info("Inicio de la extracción de datos OCR.")
     taggun_data = extract_taggun_data(payload)
 
     payload_text = payload.get("text", {}).get("text", "")
-    company_vat, partner_vat, extractor = find_tax_ids(payload_text, all_tax_ids)
+    logger.info("Búsqueda de Tax ID de la empresa.")
+    company_vat, partner_vat, extractor = find_tax_ids(
+        payload_text=payload_text,
+        all_tax_ids=all_tax_ids,
+        taggun_data=taggun_data,
+    )
     taggun_data.partner_vat = partner_vat
+
     account = get_account_match(accounts_response, company_vat, extractor)
 
     await register_scan(

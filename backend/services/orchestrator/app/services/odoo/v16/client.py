@@ -1,3 +1,4 @@
+import json
 from typing import List
 from fastapi import UploadFile
 from pydantic import TypeAdapter
@@ -7,7 +8,7 @@ from app.core.utils.tax_resolver import TaxCalculator
 from app.core.patterns.adapter.odoo_adapter import OdooAdapter
 
 from app.services.openai.client import OpenAIService
-from app.services.odoo.exceptions import OdooTaxIdNotFound
+from app.services.odoo.exceptions import OdooIncompleteDataError, OdooTaxIdNotFound
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.openai.schemas.classification_tax_request import (
     ClasificacionRequest,
@@ -90,14 +91,24 @@ async def get_tax_id_openai(
         amount_discount=taggun_data.amount_discount,
     )
 
-    canditates_set = calculator.calculate()
+    candidates_set = calculator.calculate()
+    if not candidates_set:
+        raise OdooIncompleteDataError(
+            message="",
+            data={
+                "amount_tax": taggun_data.amount_tax,
+                "amount_total": taggun_data.amount_total,
+                "amount_untaxed": taggun_data.amount_untaxed,
+                "amount_discount": taggun_data.amount_discount,
+            },
+        )
 
-    logger.debug(f"Candidatos a porcentaje de impuesto: {canditates_set}")
+    logger.debug(f"Candidatos a porcentaje de impuesto: {candidates_set}")
 
     proveedor = taggun_data.partner_name
     nif = taggun_data.partner_vat
     productos = taggun_data.line_items
-    iva_rate = next(iter(canditates_set), None)
+    iva_rate = next(iter(candidates_set), None)
     candidate_tax_ids = validated_tax_ids
 
     if iva_rate is None:

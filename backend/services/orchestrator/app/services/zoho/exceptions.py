@@ -7,8 +7,10 @@ class ContactIdNotFoundError(CustomAppException):
 
 
 class ZohoServiceError(CustomAppException):
-    def __init__(self, message="Error en la respuesta de Zoho", data=None):
-        super().__init__(message=message, data=data, status_code=502)
+    def __init__(
+        self, message="Error en la respuesta de Zoho", data=None, status_code=422
+    ):
+        super().__init__(message=message, data=data, status_code=status_code)
 
 
 class ZohoTimeoutError(ZohoServiceError):
@@ -36,4 +38,4 @@ class TaxPercentageNotFound(ZohoServiceError):
         message="No se pudo determinar un porcentaje de impuesto válido",
         data=None,
     ):
-        super().__init__(message=message, data=data)
+        super().__init__(message=message, data=data, status_code=422)

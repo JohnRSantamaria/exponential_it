@@ -3,6 +3,7 @@ import re
 from typing import List, Tuple
 from stdnum.eu import vat as vat_validator
 from app.core.logging import logger
+from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.core.exceptions import (
     MultipleCompanyTaxIdMatchesError,
     MultiplePartnerTaxIdsError,
@@ -81,10 +82,13 @@ class TaxIdExtractor:
                 if TaxIdExtractor._is_valid_cif(valor):
                     valid.append(valor)
                     seen_normalized.add(normalized)
+
             elif tipo == "dig":
                 if TaxIdExtractor._is_valid_numeric_cif(valor):
                     valid.append(valor)
                     seen_normalized.add(normalized)
+                else:
+                    logger.warning(f"{valor} NO es un CIF numérico válido")
             elif tipo == "nif":
                 if TaxIdExtractor._is_valid_nif(valor):
                     valid.append(valor)
@@ -226,11 +230,14 @@ class TaxIdExtractor:
 
         raise MultipleCompanyTaxIdMatchesError(matches)
 
-    def get_partner_tax_id_or_fail(self, company_vat: str) -> str:
+    def get_partner_tax_id_or_fail(
+        self, company_vat: str, taggun_data: TaggunExtractedInvoice
+    ) -> str | list:
         """
         Devuelve el identificador fiscal del proveedor (partner), excluyendo el de la empresa contratada.
-        Si hay múltiples posibles pero son suficientemente similares, retorna uno.
-        Lanza ValueError si no hay ninguno o si hay varios distintos.
+        Si hay múltiples posibles pero son variantes similares, retorna el más completo.
+        Lanza MultiplePartnerTaxIdsError si hay varios distintos.
+        Lanza PartnerTaxIdNotFoundError si no encuentra ninguno.
         """
         valid_ids = self.valid_tax_ids()
 
@@ -240,12 +247,21 @@ class TaxIdExtractor:
             if not self._are_similar(tax_id, company_vat, self.similarity_threshold)
         ]
 
-        if len(candidates) == 1:
-            return candidates[0]
+        matches = []
+        for tax_id in candidates:
+            if not any(
+                self._are_similar(tax_id, m, self.similarity_threshold) for m in matches
+            ):
+                matches.append(tax_id)
 
-        if len(candidates) > 1:
-            if self._all_similar(candidates, threshold=self.similarity_threshold):
-                return max(candidates, key=len)
-            raise MultiplePartnerTaxIdsError(candidates)
+        if len(matches) == 1:
+            return matches[0]
 
-        raise PartnerTaxIdNotFoundError()
+        if not matches:
+            raise PartnerTaxIdNotFoundError()
+
+        # ✅ Si hay múltiples, pero son similares entre sí → devolver el más largo
+        if self._all_similar(matches, threshold=self.similarity_threshold):
+            return max(matches, key=lambda x: (len(x), x))
+
+        raise MultiplePartnerTaxIdsError(matches)
