@@ -23,7 +23,6 @@ async def odoo_process(
     file_content: bytes,
     taggun_data: TaggunExtractedInvoice,
     company_vat: str,
-    openai_service: OpenAIService,
 ):
     config = ProviderConfig(server_url=settings.URL_OPENAPI)
     openai_service = OpenAIService(config=config)
