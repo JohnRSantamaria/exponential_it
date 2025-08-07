@@ -21,8 +21,6 @@ from exponential_core.odoo import (
     InvoiceCreateSchema,
 )
 
-from app.core.utils.tax_resolver import TaxCalculator
-
 
 async def get_or_create_contact_id(
     odoo_provider: OdooAdapter,
@@ -78,14 +76,8 @@ async def get_tax_id_openai(
     validated_tax_ids: List[ResponseTaxesSchema],
     openai_service: OpenAIService,
 ):
-    calculator = TaxCalculator(
-        amount_tax=taggun_data.amount_tax,
-        amount_total=taggun_data.amount_total,
-        amount_untaxed=taggun_data.amount_untaxed,
-        amount_discount=taggun_data.amount_discount,
-    )
 
-    candidates_set = calculator.calculate()
+    candidates_set = taggun_data.tax_canditates
     logger.debug(f"Candidatos a porcentaje de impuesto: {candidates_set}")
 
     proveedor = taggun_data.partner_name

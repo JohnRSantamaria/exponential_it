@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Set
 from datetime import date
 from pydantic import BaseModel
 
@@ -33,3 +33,4 @@ class TaggunExtractedInvoice(BaseModel):
     amount_discount: float
     address: AddressSchema
     line_items: list[LineItemSchema]
+    tax_canditates: Optional[Set[float]]
