@@ -20,8 +20,6 @@ def find_tax_ids(
     logger.debug("Buscando un Tax ID válido para el proveedor.")
     partner_vat = extractor.get_partner_tax_id_or_fail(company_vat, taggun_data)
 
-    partner_vat
-
     return company_vat, partner_vat, extractor
 
 

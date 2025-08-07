@@ -31,91 +31,6 @@ class TaxCalculator:
                 return standard
         return rounded
 
-    def reorder(
-        self,
-        amount_untaxed: float,
-        amount_total: float,
-        amount_tax: float,
-        amount_discount: float | None = None,
-    ):
-        """What if exist an discound"""
-        if amount_discount > 0 or amount_discount:
-            logger.warning("Se dectecto un descuento en la factura.")
-            amount_total = amount_untaxed + amount_tax
-
-        """Reorder amounts to ensure total ≥ untaxed ≥ tax."""
-        if amount_total <= 0 and amount_untaxed <= 0 and amount_tax <= 0:
-            raise TaxPercentageNotFound(
-                data={
-                    "amount_untaxed": amount_untaxed,
-                    "amount_total": amount_total,
-                    "amount_tax": amount_tax,
-                    "amount_discount": self.amount_discount,
-                }
-            )
-
-        # what if due to an error we similar values in total, untaxed, and tax?
-        if amount_total == amount_untaxed == amount_tax:
-            raise TaxPercentageNotFound(
-                data={
-                    "amount_untaxed": amount_untaxed,
-                    "amount_total": amount_total,
-                    "amount_tax": amount_tax,
-                    "amount_discount": self.amount_discount,
-                }
-            )
-
-        if amount_total == amount_untaxed and amount_tax > 0:
-            percentage = (amount_tax / amount_untaxed) * 100
-            normalized = self.normalize(percentage)
-
-            if normalized in settings.TAX_STANDARD_RATES:
-                self.amount_total = amount_untaxed + amount_tax
-                amount_total = amount_untaxed + amount_tax
-            else:
-                self.amount_untaxed = amount_total - amount_tax
-                amount_untaxed = amount_total - amount_tax
-
-        if amount_untaxed > 0 and amount_total > 0 and amount_tax > 0:  # 1 1 1 => 1
-            values = [amount_untaxed, amount_total, amount_tax]
-            values.sort(reverse=True)  # Ordena de mayor a menor
-            self.amount_untaxed = values[1]
-            self.amount_total = values[0]
-            self.amount_tax = values[2]
-
-        elif amount_total <= 0 and amount_tax > 0 and amount_untaxed > 0:  # 0 1 1 => 1
-            values = [amount_tax, amount_untaxed]
-            values.sort(reverse=True)  # Ordena de mayor a menor
-            self.amount_tax = values[1]
-            self.amount_untaxed = values[0]
-
-            self.amount_total = self.amount_untaxed + self.amount_tax
-
-        elif amount_total > 0 and amount_untaxed <= 0 and amount_tax > 0:  # 1 0 1 => 1
-            values = [amount_total, amount_tax]
-            values.sort(reverse=True)  # Ordena de mayor a menor
-            self.amount_total = values[0]
-            self.amount_tax = values[1]
-            self.amount_untaxed = self.amount_total - self.amount_tax
-        elif amount_total > 0 and amount_untaxed > 0 and amount_tax <= 0:  # 1 1 0 => 1
-            values = [amount_total, amount_untaxed]
-            values.sort(reverse=True)  # Ordena de mayor a menor
-            self.amount_total = values[0]
-            self.amount_untaxed = values[1]
-            self.amount_tax = self.amount_total - self.amount_untaxed
-        elif amount_total > 0 and amount_untaxed <= 0 and amount_tax <= 0:
-            self.amount_untaxed = amount_total
-            self.amount_tax = 0.0
-        else:
-            raise TaxPercentageNotFound(
-                data={
-                    "amount_untaxed": amount_untaxed,
-                    "amount_total": amount_total,
-                    "amount_tax": amount_tax,
-                    "amount_discount": self.amount_discount,
-                }
-            )
-
     def _add_candidate(self, percentage: float) -> None:
         normalized = self.normalize(percentage)
         if normalized in settings.TAX_STANDARD_RATES:
@@ -138,27 +53,102 @@ class TaxCalculator:
             self.amount_discount,
         )
 
-        # Caso: hay descuento (d > 0)
-        if d > 0 and u > 0 and tx > 0:
-            if abs(u - d + tx - t) > 0.3:
-                self._raise_error()
+        def is_valid_rate(untaxed: float, tax: float) -> bool:
+            if untaxed <= 0:
+                return False
+            rate = round((tax / untaxed) * 100, 2)
+            return any(abs(rate - r) <= 0.3 for r in settings.TAX_STANDARD_RATES)
+
+        # Caso 1: Descuento presente y todos los valores
+        if d > 0 and u > 0 and tx > 0 and t > 0:
+            expected_total = u - d + tx
+            if abs(expected_total - t) > 0.3:
+                u2 = t - tx + d
+                if is_valid_rate(u2, tx):
+                    u = u2
+                else:
+                    self._raise_error()
             self._compute_percentage(u, tx)
             return self.candidates
-        # Sin descuento
+
+        # Caso 2: Descuento presente, falta uno de los tres
+        if d > 0:
+            if t > 0 and u > 0 and tx <= 0:
+                tx = t - (u - d)
+                if not is_valid_rate(u, tx):
+                    self._raise_error()
+                self._compute_percentage(u, tx)
+                return self.candidates
+
+            elif t > 0 and tx > 0 and u <= 0:
+                u = t - tx + d
+                if not is_valid_rate(u, tx):
+                    self._raise_error()
+                self._compute_percentage(u, tx)
+                return self.candidates
+
+            elif u > 0 and tx > 0 and t <= 0:
+                t = u - d + tx
+                if not is_valid_rate(u, tx):
+                    self._raise_error()
+                self._compute_percentage(u, tx)
+                return self.candidates
+
+        # Caso 3: Sin descuento, todos los valores presentes
         if t > 0 and u > 0 and tx > 0:
             if abs(u + tx - t) > 0.3:
+                expected_untaxed = t - tx
+                expected_total = u + tx
+
+                rate_if_untaxed_fixed = (
+                    (tx / expected_untaxed) * 100 if expected_untaxed > 0 else -1
+                )
+                rate_if_total_fixed = (tx / u) * 100 if u > 0 else -1
+
+                match_untaxed = any(
+                    abs(rate_if_untaxed_fixed - r) <= 0.3
+                    for r in settings.TAX_STANDARD_RATES
+                )
+                match_total = any(
+                    abs(rate_if_total_fixed - r) <= 0.3
+                    for r in settings.TAX_STANDARD_RATES
+                )
+
+                if match_untaxed and not match_total:
+                    u = expected_untaxed
+                elif match_total and not match_untaxed:
+                    t = expected_total
+                elif match_untaxed and match_total:
+                    # Ambos cuadran, se prefiere mantener el total
+                    u = expected_untaxed
+                else:
+                    self._raise_error()
+
+            if not is_valid_rate(u, tx):
+                self._raise_error()
+
+            self._compute_percentage(u, tx)
+            return self.candidates
+
+        # Caso 4: Falta tax
+        if t > 0 and u > 0 and tx <= 0:
+            tx = t - u
+            if not is_valid_rate(u, tx):
                 self._raise_error()
             self._compute_percentage(u, tx)
 
-        elif t > 0 and u > 0 and tx <= 0:
-            tx = t - u
-            self._compute_percentage(u, tx)
-
+        # Caso 5: Falta untaxed
         elif t > 0 and u <= 0 and tx > 0:
             u = t - tx
+            if not is_valid_rate(u, tx):
+                self._raise_error()
             self._compute_percentage(u, tx)
 
+        # Caso 6: Falta total
         elif t <= 0 and u > 0 and tx > 0:
+            t = u + tx
+            if not is_valid_rate(u, tx):
+                self._raise_error()
             self._compute_percentage(u, tx)
 
         else:
