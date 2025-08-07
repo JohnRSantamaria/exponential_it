@@ -1,6 +1,8 @@
 FROM python:3.13-alpine
+
 # Directorio de trabajo
 WORKDIR /app
+
 # Configuración de entorno
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
@@ -27,12 +29,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Asegurar permisos de ejecución
-RUN chmod +x /app/scripts/entrypoint.sh \
-    && addgroup -S appgroup \
-    && adduser -S appuser -G appgroup \
-    && chown -R appuser:appgroup /app
+RUN chmod +x /app/scripts/entrypoint.sh
 
-USER appuser
 
-# Comando por defecto (puede ser sobreescrito por docker-compose)
+# Comando por defecto
 CMD ["sh", "/app/scripts/entrypoint.sh"]
