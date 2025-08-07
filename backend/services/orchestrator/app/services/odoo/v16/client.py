@@ -4,7 +4,6 @@ from fastapi import UploadFile
 from pydantic import TypeAdapter
 from datetime import datetime
 from app.core.logging import logger
-from app.core.utils.tax_resolver import TaxCalculator
 from app.core.patterns.adapter.odoo_adapter import OdooAdapter
 
 from app.services.openai.client import OpenAIService
@@ -83,26 +82,7 @@ async def get_tax_id_openai(
     validated_tax_ids: List[ResponseTaxesSchema],
     openai_service: OpenAIService,
 ):
-
-    calculator = TaxCalculator(
-        amount_tax=taggun_data.amount_tax,
-        amount_total=taggun_data.amount_total,
-        amount_untaxed=taggun_data.amount_untaxed,
-        amount_discount=taggun_data.amount_discount,
-    )
-
-    candidates_set = calculator.calculate()
-    if not candidates_set:
-        raise OdooIncompleteDataError(
-            message="",
-            data={
-                "amount_tax": taggun_data.amount_tax,
-                "amount_total": taggun_data.amount_total,
-                "amount_untaxed": taggun_data.amount_untaxed,
-                "amount_discount": taggun_data.amount_discount,
-            },
-        )
-
+    candidates_set = taggun_data.tax_canditates
     logger.debug(f"Candidatos a porcentaje de impuesto: {candidates_set}")
 
     proveedor = taggun_data.partner_name
@@ -133,11 +113,16 @@ async def get_tax_id_openai(
     try:
         tax_response = TaxIdResponseSchema(**tax_raw_response)
     except Exception as e:
-        raise Exception(f"Error al identificar el tax id en OpenAi{e}")
+        raise OdooTaxIdNotFound(message=f"Error al identificar el tax id en OpenAi{e}")
 
-    logger.debug(
-        f"Tax ID encontrada id: {tax_response.tax_id_number}, {tax_response.description}"
-    )
+    tax_id_number = tax_response.tax_id_number
+    if tax_id_number <= 0:
+        raise OdooTaxIdNotFound(
+            message=f"Error al identificar el tax id en OpenAi",
+            data={"tax_id_number": tax_id_number},
+        )
+
+    logger.debug(f"Tax ID encontrada id: {tax_id_number}, {tax_response.description}")
 
     return tax_response.tax_id_number
 

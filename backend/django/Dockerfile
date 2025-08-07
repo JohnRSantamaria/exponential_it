@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 
 # Instalar dependencias necesarias para compilar y correr
-RUN apk update && apk add --no-cache \
+RUN apk update && apk upgrade --no-cache && apk add --no-cache \
     gcc \
     musl-dev \
     postgresql-dev \
@@ -27,7 +27,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Asegurar permisos de ejecución
-RUN chmod +x /app/scripts/entrypoint.sh
+RUN chmod +x /app/scripts/entrypoint.sh \
+    && addgroup -S appgroup \
+    && adduser -S appuser -G appgroup \
+    && chown -R appuser:appgroup /app
+
+USER appuser
 
 # Comando por defecto (puede ser sobreescrito por docker-compose)
 CMD ["sh", "/app/scripts/entrypoint.sh"]

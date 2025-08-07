@@ -21,7 +21,6 @@ MAX_ATTEMPTS = 2
 
 
 async def classify_tax_id(payload: ClasificacionRequest) -> TaxIdResponseSchema:
-    # 🔒 Verifica que la API Key esté presente
     api_key = settings.OPENAI_API_KEY
 
     if not api_key or api_key.strip() == "":
@@ -30,48 +29,49 @@ async def classify_tax_id(payload: ClasificacionRequest) -> TaxIdResponseSchema:
             status_code=500,
             detail="API Key de OpenAI no configurada correctamente.",
         )
-    else:
-        logger.info("✅ API Key de OpenAI detectada.")
 
-    # Filtra los impuestos por tasa
+    logger.info("✅ API Key de OpenAI detectada.")
+
     tax_ids_candidates = [
         {"tax_id_number": item.id, "description": item.name}
         for item in payload.candidate_tax_ids
         if item.amount == payload.iva_rate
     ]
 
-    # Convierte los productos a JSON limpio
     productos = [
         item.model_dump(mode="json", exclude_none=True) for item in payload.products
     ]
 
-    # Arma el prompt para OpenAI
     prompt = f"""
         Tengo una factura de proveedor: {payload.provider} (NIF: {payload.nif}).
 
         Productos o servicios adquiridos:
         {productos}
 
-        Se ha detectado un IVA del {payload.iva_rate}%. A continuación se listan los posibles impuestos registrados en Odoo con esa misma tasa:
+        Se ha detectado un IVA del {payload.iva_rate}%. A continuación se listan los posibles impuestos registrados en Odoo con **esa misma tasa exacta**:
 
         {tax_ids_candidates}
 
-        Con base en el tipo de producto o servicio, ¿cuál es el tax_id más adecuado?
-        Si no hay coincidencia clara, responde exactamente así:
-        {DEFAULT_TAX}
+        Tu tarea es seleccionar el `tax_id_number` más adecuado basándote únicamente en el tipo de producto o servicio.
+
+        ⚠️ IMPORTANTE:
+        - **Nunca** devuelvas la opción por defecto (`{DEFAULT_TAX}`) si hay al menos un impuesto en la lista. 
+        - Si no estás seguro, **elige el impuesto más general o que aplique a la mayoría de los productos** con esa tasa.
+        - Solo devuelve `{DEFAULT_TAX}` si la lista está completamente vacía o no hay ningún impuesto del {payload.iva_rate}% disponible.
 
         Responde únicamente con un objeto JSON plano, sin explicaciones, sin texto adicional, y sin bloques de código:
+
         {{
         "tax_id_number": "...",
         "description": "..."
         }}
-    """.strip()
+        """.strip()
 
     for attempt in range(1, MAX_ATTEMPTS + 1):
         try:
             logger.info(f"🔎 Intento {attempt}: Clasificando tax_id con OpenAI")
 
-            client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+            client = AsyncOpenAI(api_key=api_key)
 
             response = await client.chat.completions.create(
                 model="gpt-4o",
@@ -87,17 +87,28 @@ async def classify_tax_id(payload: ClasificacionRequest) -> TaxIdResponseSchema:
             )
 
             content = response.choices[0].message.content.strip()
-
             cleaned = re.sub(
                 r"^```(json)?\s*|\s*```$", "", content, flags=re.IGNORECASE
             ).strip()
-
             raw = json.loads(cleaned)
+
             logger.info(f"✅ Respuesta recibida y parseada: {raw}")
+
+            # Reintenta si es DEFAULT_TAX
+            if (
+                raw.get("tax_id_number") == DEFAULT_TAX["tax_id_number"]
+                and raw.get("description") == DEFAULT_TAX["description"]
+                and attempt < MAX_ATTEMPTS
+            ):
+                logger.warning("🚫 Se recibió DEFAULT_TAX, reintentando...")
+                continue
+
             return TaxIdResponseSchema(**raw)
 
         except (json.JSONDecodeError, ValidationError) as e:
             logger.warning(f"[OpenAI Parse Error] Intento {attempt} fallido: {e}")
+            if attempt < MAX_ATTEMPTS:
+                continue  # Reintenta si aún quedan intentos
 
         except Exception as e:
             logger.exception("❌ Fallo en la clasificación de tax_id")
