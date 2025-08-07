@@ -26,7 +26,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://15.188.6.72",
     "https://admin-django",
     "https://api.exponentialit.net",
-    "https://ai.exponentialit.net",
+    "https://testapi.exponentialit.net",
 ]
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
