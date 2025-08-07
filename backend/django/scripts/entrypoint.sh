@@ -1,12 +1,10 @@
 #!/bin/sh
 echo "📌 Entrypoint iniciado"
 
-# Cargar variables desde .env si no las inyecta Docker directamente
 export $(grep -v '^#' /app/.env | xargs) || true
 
 echo "🌍 DEBUG=$DEBUG"
 
-# Seleccionar la base de datos según el entorno
 if [ "$DEBUG" = "False" ]; then
   echo "🚀 Entorno producción"
   DB_URL=${DATABASE_PROD}
@@ -15,13 +13,11 @@ else
   DB_URL=${DATABASE_LOCAL}
 fi
 
-# Extraer host y puerto de la URL
 AFTER_AT=$(echo "$DB_URL" | awk -F@ '{print $2}' | awk -F/ '{print $1}')
 DB_HOST=$(echo "$AFTER_AT" | cut -d: -f1)
 DB_PORT=$(echo "$AFTER_AT" | cut -s -d: -f2)
 DB_PORT=${DB_PORT:-5432}
 
-# Validación defensiva
 if [ -z "$DB_HOST" ] || [ -z "$DB_PORT" ]; then
   echo "❌ No se pudo extraer DB_HOST o DB_PORT de la URL seleccionada"
   echo "🔍 Valor de DB_URL: $DB_URL"
@@ -47,7 +43,14 @@ echo "🛠️ Ejecutando migraciones..."
 python manage.py migrate
 
 if [ "$DEBUG" = "False" ]; then
-  echo "📦 Recolectando archivos estáticos..."
+  STATIC_ROOT=${STATIC_ROOT:-/app/config/staticfiles}
+  echo "📦 Recolectando archivos estáticos en: $STATIC_ROOT"
+
+  echo "🔧 Ajustando permisos de STATIC_ROOT"
+  mkdir -p "$STATIC_ROOT"
+  chown -R appuser:appgroup "$STATIC_ROOT" || echo "⚠️ No se pudo cambiar el dueño"
+  chmod -R 755 "$STATIC_ROOT"
+
   python manage.py collectstatic --noinput
 else
   echo "🧪 Entorno de desarrollo: se omite collectstatic"
