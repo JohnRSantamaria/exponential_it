@@ -93,49 +93,82 @@ class TaggunExtractor:
         items = self._try_paths(["entities", "productLineItems"], default=[])
         return items if isinstance(items, list) else []
 
-    def parse_line_items(self, amount_total, amount_untaxed) -> list[LineItemSchema]:
+    def parse_line_items(
+        self,
+        amount_total: float,
+        amount_untaxed: float,
+        amount_discount: float,
+    ) -> list[LineItemSchema]:
         raw_items = self.extract_line_items()
         parsed_items: list[LineItemSchema] = []
 
-        total_units = 0
-        total_price_sum = 0.0
-        total_unit_price_sum = 0.0
+        EPS = 0.05
 
-        products_name = ""
+        untaxed_expected = (amount_untaxed or 0.0) - (abs(amount_discount or 0.0))
+        total_expected = amount_total or 0.0
+
+        products_name = []
+        sum_qty = 0
+        sum_subtotal = 0.0
+        sum_total = 0.0
+        have_any_total_price = False
+
         for item in raw_items:
-            data = item.get("data", {})
+            data = item.get("data", {}) or {}
 
-            product_name = data.get("name", {}).get("data", "").strip()
-            products_name += f"{product_name}, "
-            quantity = data.get("quantity", {}).get("data", 0)
-            unit_price = self.safe_float(data.get("unitPrice", {}).get("data"))
-            total_price = self.safe_float(data.get("totalPrice", {}).get("data"))
+            name = (data.get("name", {}) or {}).get("data", "") or ""
+            qty = data.get("quantity", {}) or {}
+            qty = qty.get("data", 0) or 0
+            unit_price = self.safe_float((data.get("unitPrice", {}) or {}).get("data"))
+            total_price = self.safe_float(
+                (data.get("totalPrice", {}) or {}).get("data")
+            )
 
-            # Acumuladores
-            total_units += quantity
-            total_price_sum += total_price
-            total_unit_price_sum += unit_price
+            qty = int(qty) if isinstance(qty, int) else (qty or 0)
+            unit_price = unit_price or 0.0
+            total_price = total_price or 0.0
 
-            # Crear instancia del esquema y agregarla a la lista
+            products_name.append(name.strip())
+            sum_qty += qty
+            sum_subtotal += unit_price * qty
+            if total_price:
+                have_any_total_price = True
+                sum_total += total_price
+
             parsed_items.append(
                 LineItemSchema(
-                    name=product_name,
-                    quantity=quantity,
+                    name=name.strip(),
+                    quantity=qty,
                     unit_price=unit_price,
-                    total_price=total_price,
+                    total_price=(
+                        total_price if have_any_total_price else unit_price * qty
+                    ),
                 )
             )
 
-        if total_unit_price_sum > amount_untaxed or total_price_sum > amount_total:
-            return [
-                LineItemSchema(
-                    name=products_name,
-                    quantity=1,
-                    unit_price=amount_untaxed,
-                    total_price=amount_total,
-                )
-            ]
-        return parsed_items
+        if not have_any_total_price:
+            sum_total = sum_subtotal
+
+        untaxed_ok = abs(sum_subtotal - untaxed_expected) <= EPS
+        total_ok = abs(sum_total - total_expected) <= EPS if total_expected else True
+
+        if untaxed_ok and total_ok:
+            return parsed_items
+
+        # 🔁 Fallback
+        merged_name = ", ".join([n for n in products_name if n]) or "Conceptos varios"
+        return [
+            LineItemSchema(
+                name=merged_name,
+                quantity=1,
+                unit_price=max(0.0, round(untaxed_expected, 2)),
+                total_price=(
+                    round(total_expected, 2)
+                    if total_expected
+                    else round(untaxed_expected, 2)
+                ),
+            )
+        ]
 
     def extract_data(self) -> TaggunExtractedInvoice:
         partner_name = self._try_paths(
@@ -160,6 +193,7 @@ class TaggunExtractor:
         amount_tax = self._try_paths(["taxAmount", "data"], default=0.0)
         amount_untaxed = self._try_paths(["paidAmount", "data"], default=0.0)
         amount_discount = self._try_paths(["discountAmount", "data"], default=0.0)
+        amount_discount = abs(amount_discount)
 
         tax_canditates = self.calculate_tax_candidates(
             amount_discount=amount_discount,
@@ -188,8 +222,11 @@ class TaggunExtractor:
                 amount_tax = corrected["amount_tax"]
 
         address = self.extract_address()
+
         lines = self.parse_line_items(
-            amount_total=amount_total, amount_untaxed=amount_untaxed
+            amount_total=amount_total,
+            amount_untaxed=amount_untaxed,
+            amount_discount=amount_discount,
         )
 
         return TaggunExtractedInvoice(
@@ -244,6 +281,12 @@ class TaggunExtractor:
                 else:
                     self._raise_error()
             self._compute_percentage(u, tx)
+
+            self.corrected_values = {
+                "amount_untaxed": u,
+                "amount_total": t,
+                "amount_tax": tx,
+            }
             return self.candidates
 
         # Caso 2: Descuento presente, falta uno de los tres
@@ -253,6 +296,12 @@ class TaggunExtractor:
                 if not is_valid_rate(u, tx):
                     self._raise_error()
                 self._compute_percentage(u, tx)
+
+                self.corrected_values = {
+                    "amount_untaxed": u,
+                    "amount_total": t,
+                    "amount_tax": tx,
+                }
                 return self.candidates
 
             elif t > 0 and tx > 0 and u <= 0:
@@ -260,6 +309,12 @@ class TaggunExtractor:
                 if not is_valid_rate(u, tx):
                     self._raise_error()
                 self._compute_percentage(u, tx)
+
+                self.corrected_values = {
+                    "amount_untaxed": u,
+                    "amount_total": t,
+                    "amount_tax": tx,
+                }
                 return self.candidates
 
             elif u > 0 and tx > 0 and t <= 0:
@@ -267,6 +322,12 @@ class TaggunExtractor:
                 if not is_valid_rate(u, tx):
                     self._raise_error()
                 self._compute_percentage(u, tx)
+
+                self.corrected_values = {
+                    "amount_untaxed": u,
+                    "amount_total": t,
+                    "amount_tax": tx,
+                }
                 return self.candidates
 
         # Caso 3: Sin descuento, todos los valores presentes
