@@ -50,14 +50,7 @@ class TaggunExtractor:
         return ((amount_untaxed > 0) + (amount_total > 0) + (amount_tax > 0)) >= 2
 
     def _raise_error(self):
-        raise TaxPercentageNotFound(
-            data={
-                "amount_untaxed": self.amount_untaxed,
-                "amount_total": self.amount_total,
-                "amount_tax": self.amount_tax,
-                "amount_discount": self.amount_discount,
-            }
-        )
+        raise TaxPercentageNotFound()
 
     def _add_candidate(self, percentage: float) -> None:
         normalized = self.normalize(percentage)
