@@ -1,7 +1,8 @@
 from typing import List
-from fastapi import APIRouter, Body, Query
+from fastapi import APIRouter, Body, File, Query, UploadFile
 from app.core.logging import logger
 from app.services.openai.account_classifier import classify_account
+from app.services.openai.parser_document import extract_data_from_invoice
 from app.services.openai.schemas.classification_tax_request import ClasificacionRequest
 from app.services.openai.search_by_cif import search_cif_by_partner
 from app.services.openai.tax_id_classifier import classify_tax_id
@@ -41,3 +42,24 @@ async def search_partner(
     Si no se encuentra, devuelve {"CIF": "0"}.
     """
     return await search_cif_by_partner(partner_name=partner_name)
+
+
+@router.post("/parser_invoice")
+async def parser_invoice(file: UploadFile = File(...)):
+    """
+    Recibe un PDF y devuelve:
+    - subtotal, tax_amount, discount_amount, total, tax_rate_percent
+    - evidencias (snippets)
+    Valida aritmética y, si el PDF es digital y está habilitado, presencia de evidencias.
+    """
+    result = await extract_data_from_invoice(file)
+    return {
+        "currency": result.currency,
+        "subtotal": result.subtotal.model_dump(),
+        "tax_amount": result.tax_amount.model_dump(),
+        "discount_amount": result.discount_amount.model_dump(),
+        "total": result.total.model_dump(),
+        "tax_rate_percent": str(result.tax_rate_percent),
+        "evidence": result.evidence,
+        "notes": result.notes,
+    }

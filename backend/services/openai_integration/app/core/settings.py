@@ -1,9 +1,8 @@
-# app/core/settings.py
 import os
 from pathlib import Path
+from typing import Literal
 from pydantic_settings import BaseSettings
 from pydantic import Field, field_validator
-
 
 # Base del proyecto
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -32,7 +31,26 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_SECRET_KEY: str = ""
     CRYPTO_KEY: str = ""
+
+    # @JohnRSantamaria Open AI
     OPENAI_API_KEY: str = ""
+    # Modelo para Chat Completions multimodal (imágenes + JSON)
+    MODEL_NAME: str = "gpt-4o-mini"
+    CHAT_MODEL: str = "gpt-4o-mini"
+
+    # Render de PDF -> PNG
+    MAX_PAGES: int = Field(
+        default=2, description="Máximo de páginas a rasterizar por factura"
+    )
+    RENDER_DPI: int = Field(
+        default=220, description="DPI usados para rasterizar PDF a PNG"
+    )
+
+    # Política de evidencias:
+    # - off: no verificar evidencias contra el texto
+    # - numbers: solo verificar que aparezca algún número del campo (ignora etiquetas); no rompe
+    # - strict: verificar evidencias completas; si faltan, rompe con 422
+    EVIDENCE_POLICY: Literal["off", "numbers", "strict"] = "numbers"
 
     # Conversión de string a Path si se define por entorno
     @field_validator("ERROR_LOG_FILE", mode="before")
