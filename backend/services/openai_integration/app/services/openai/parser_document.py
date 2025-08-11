@@ -35,15 +35,7 @@ class InvoiceTotals(BaseModel):
     discount_amount: Money
     total: Money
     tax_rate_percent: Decimal = Field(
-        ..., description="Porcentaje total de IVA, p.ej. 21.0"
-    )
-    # NUEVO: Retención (IRPF, retención fiscal, etc.)
-    withholding_amount: Money = Field(
-        default_factory=lambda: Money(raw="0", value=Decimal("0")),
-        description="Retención aplicada al pago (no reduce base de IVA)",
-    )
-    withholding_rate_percent: Decimal = Field(
-        default=Decimal("0"), description="Porcentaje de retención, p.ej. 19.0"
+        ..., description="Porcentaje total de impuestos, p.ej. 21.0"
     )
     # Evidencias: recortes textuales que el modelo vio en el documento
     evidence: Dict[str, List[str]] = Field(
@@ -58,11 +50,15 @@ DEC_Q = Decimal("0.01")
 
 
 def eur_text_to_decimal(s: str) -> Decimal:
+    """
+    Convierte formatos EU '7.685,38' -> Decimal('7685.38')
+    Elimina símbolos no numéricos manteniendo signos y separadores.
+    """
     s = s.strip()
     s = re.sub(r"[^\d,.\-]", "", s)
     if "," in s and s.count(",") == 1:
         s = s.replace(".", "").replace(",", ".")
-    return Decimal(s or "0")
+    return Decimal(s)
 
 
 def almost_equal(a: Decimal, b: Decimal, tol: Decimal = DEC_Q) -> bool:
@@ -71,10 +67,10 @@ def almost_equal(a: Decimal, b: Decimal, tol: Decimal = DEC_Q) -> bool:
 
 def normalize_money(m: Money) -> Decimal:
     """
-    Prefiere parsear desde raw cuando:
-      - raw tiene signo ('-' o '+'), o
+    Preferir parsear desde raw cuando:
+      - raw tiene un signo ('-' o '+'), o
       - el valor parseado desde raw es no-cero.
-    Si no, usa value.
+    Si no, usar value.
     """
     parsed_from_raw = None
     if m.raw is not None and str(m.raw).strip():
@@ -101,6 +97,9 @@ def normalize_money(m: Money) -> Decimal:
 
 
 def pdf_to_data_uris(pdf_bytes: bytes, max_pages: int, dpi: int) -> list[str]:
+    """
+    Renderiza hasta max_pages del PDF a PNG y devuelve data URIs ('data:image/png;base64,...').
+    """
     uris: list[str] = []
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         n = min(len(doc), max_pages)
@@ -116,6 +115,9 @@ def pdf_to_data_uris(pdf_bytes: bytes, max_pages: int, dpi: int) -> list[str]:
 
 
 def extract_text_with_pymupdf(pdf_bytes: bytes) -> str:
+    """
+    Extrae texto si el PDF es 'digital'. En escaneados (solo imagen), devolverá poco o nada.
+    """
     chunks = []
     with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
         for page in doc:
@@ -123,10 +125,19 @@ def extract_text_with_pymupdf(pdf_bytes: bytes) -> str:
     return "\n".join(chunks).strip()
 
 
-# --- Normalización texto para evidencias ---
+# --- Matching tolerante para evidencias ---
 
 
 def _normalize_for_match(s: str) -> str:
+    """
+    Normaliza texto para matching tolerante:
+    - lower
+    - quita diacríticos
+    - convierte ',' -> '.'
+    - elimina separadores y espacios
+    - mantiene dígitos, letras, '.', '%'
+    - colapsa puntos de miles previos al decimal
+    """
     if not s:
         return ""
     s = unicodedata.normalize("NFKD", s)
@@ -147,6 +158,9 @@ def _normalize_for_match(s: str) -> str:
 def check_evidence_in_text(
     evidence: Dict[str, List[str]], full_text: str
 ) -> Dict[str, List[str]]:
+    """
+    Matching tolerante: coma/punto, espacios, %, miles, etc.
+    """
     missing: Dict[str, List[str]] = {}
     norm_text = _normalize_for_match(full_text)
 
@@ -174,6 +188,7 @@ def check_evidence_in_text(
                             trimmed = re.sub(r"\.0+$", "", base)
                             if trimmed and trimmed in norm_text:
                                 ok = True
+
             if not ok:
                 miss_here.append(snip)
 
@@ -183,6 +198,7 @@ def check_evidence_in_text(
     return missing
 
 
+# Helpers para política "numbers"
 def _is_numeric_snippet(s: str) -> bool:
     return bool(re.search(r"\d", s or ""))
 
@@ -196,8 +212,12 @@ def _any_numeric_snippet_present(snippets: list[str], full_text: str) -> bool:
     return False
 
 
-# Detectar descuentos por línea
+# Detectar descuentos por línea en el texto
 def detect_line_level_discounts(full_text: str) -> list[Decimal]:
+    """
+    Busca patrones de descuentos por línea, p.ej. 'DTO. 4,00 %', 'Descuento 10%'.
+    Devuelve lista de porcentajes como Decimal.
+    """
     if not full_text:
         return []
     pat = re.compile(
@@ -213,10 +233,10 @@ def detect_line_level_discounts(full_text: str) -> list[Decimal]:
     return found
 
 
-# Detectar retenciones (IRPF/Retención Fiscal)
+# Detectar retenciones (IRPF, Retención Fiscal, etc.)
 def detect_withholding(full_text: str) -> Dict[str, Decimal]:
     """
-    Detecta 'Retención Fiscal 19% -81,20 €', 'Retencion IRPF 15 %', etc.
+    Detecta retenciones tipo 'Retención Fiscal 19% -81,20 €', 'Retencion IRPF 15 %'.
     Devuelve {'percent': Decimal|None, 'amount': Decimal|None} si detecta algo, o {}.
     """
     if not full_text:
@@ -250,12 +270,14 @@ async def _call_openai_for_invoice_with_images(
     user_prompt: str,
     image_data_uris: list[str],
 ) -> InvoiceTotals:
+    """
+    Envía 1..N imágenes (data URIs PNG) + prompt. Fuerza salida JSON (json_object).
+    """
     sys_msg = (
         "Eres un extractor estricto de facturas. "
         "Responde EXCLUSIVAMENTE en JSON (sin texto adicional) siguiendo el esquema solicitado."
     )
 
-    # prompt multimodal
     content: list[dict] = [{"type": "text", "text": user_prompt}]
     for uri in image_data_uris:
         content.append({"type": "image_url", "image_url": {"url": uri}})
@@ -299,7 +321,7 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
 
     client = AsyncOpenAI(api_key=api_key)
 
-    # 1) PDF -> imágenes
+    # 1) Renderizar PDF a imágenes (1..N páginas según settings)
     try:
         data_uris = pdf_to_data_uris(
             pdf_bytes=file_bytes,
@@ -314,28 +336,26 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
             status_code=422, detail=f"No se pudo convertir el PDF a imágenes: {e}"
         )
 
-    # 2) Prompt (incluye retención)
+    # 2) Prompt multimodal
     prompt = (
         "Extrae SOLO lo que ves en la factura (imágenes). Devuelve JSON con:\n"
         "- currency (ej: 'EUR')\n"
         "- subtotal {raw, value}\n"
         "- tax_amount {raw, value}\n"
         "- discount_amount {raw, value}\n"
-        "- withholding_amount {raw, value}  # Retención (IRPF)\n"
         "- total {raw, value}\n"
-        "- tax_rate_percent (porcentaje total de IVA)\n"
-        "- withholding_rate_percent (porcentaje de retención, si existe)\n"
-        "- evidence: para cada campo, arrays de cadenas EXACTAS visibles (p.ej. 'I.V.A. 21 %', 'Retención Fiscal 19% -81,20 €').\n\n"
+        "- tax_rate_percent (porcentaje total de impuestos)\n"
+        "- evidence: para cada campo, arrays de cadenas EXACTAS visibles en la imagen (p.ej. 'IVA (21,00%)').\n\n"
         "Reglas:\n"
-        "1) El % de IVA debe coincidir con lo visible (p.ej. 'I.V.A. 21 %').\n"
-        "2) Si hay retención, se resta al total a pagar (no reduce la base de IVA).\n"
-        "3) Si hay descuento de totales, resta al subtotal antes del IVA.\n"
+        "1) El % de impuestos debe coincidir con lo visible (p.ej. 'IVA (21,00%)').\n"
+        "2) Si hay varios impuestos/ajustes, resume el % total que afecta al total mostrado.\n"
+        "3) Si no hay descuentos visibles, discount_amount = 0.\n"
         "4) 'raw' debe ser exactamente como se ve (coma/punto, símbolo, separadores).\n"
         "5) 'value' debe ser numérico con punto decimal.\n"
         "6) Prioriza la tabla/pie de totales si hay conflicto.\n"
     )
 
-    # 3) Llamada al modelo
+    # 3) Llamada al modelo (imágenes + JSON mode)
     try:
         parsed: InvoiceTotals = await _call_openai_for_invoice_with_images(
             client=client,
@@ -349,9 +369,9 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
         logger.exception("Error llamando a OpenAI.")
         raise HTTPException(status_code=500, detail=f"Error procesando con OpenAI: {e}")
 
-    # 4) Validaciones y enriquecimiento
+    # 4) Validaciones locales
 
-    # 4a) Texto embebido + detectores
+    # 4a) Texto embebido (si lo hay) y detectores
     full_text = ""
     try:
         full_text = extract_text_with_pymupdf(file_bytes)
@@ -359,101 +379,64 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
         full_text = ""
 
     line_discounts = detect_line_level_discounts(full_text)
-    withholding_detected = detect_withholding(full_text)
-    has_withholding_in_text = bool(withholding_detected)
+    withholding = detect_withholding(full_text)
+    is_withholding = bool(withholding)
 
-    # Evidencias según política
+    # Evidencias segun política
     missing_evidence: Dict[str, List[str]] = {}
     if full_text and settings.EVIDENCE_POLICY != "off":
         missing_evidence = check_evidence_in_text(parsed.evidence, full_text)
+
         if settings.EVIDENCE_POLICY == "numbers":
             if "tax_rate_percent" in missing_evidence:
                 del missing_evidence["tax_rate_percent"]
-            for fld in ["subtotal", "tax_amount", "total", "withholding_amount"]:
+            for fld in ["subtotal", "tax_amount", "total"]:
                 if fld in missing_evidence:
                     if _any_numeric_snippet_present(
                         parsed.evidence.get(fld, []), full_text
                     ):
                         del missing_evidence[fld]
 
-    # 4b) Números normalizados
+    # 4b) Aritmética y % impuestos
     sub = normalize_money(parsed.subtotal)
     tax = normalize_money(parsed.tax_amount)
     disc = normalize_money(parsed.discount_amount)
     ttl = normalize_money(parsed.total)
-    wh = normalize_money(parsed.withholding_amount)
 
-    # 4c) Reconciliación robusta: descuento + retención
-    total_sans_adj = (sub + tax).quantize(DEC_Q, rounding=ROUND_HALF_UP)
-    total_with_disc = (sub - disc + tax).quantize(DEC_Q, rounding=ROUND_HALF_UP)
-    total_with_wh = (sub - wh + tax).quantize(DEC_Q, rounding=ROUND_HALF_UP)
-    total_full = (sub - disc - wh + tax).quantize(DEC_Q, rounding=ROUND_HALF_UP)
+    # --- RECONCILIACIÓN DE DESCUENTO / RETENCIÓN (robusta) ---
+    computed_total_no_disc = (sub + tax).quantize(DEC_Q, rounding=ROUND_HALF_UP)
+    computed_total_with_disc = (sub - disc + tax).quantize(
+        DEC_Q, rounding=ROUND_HALF_UP
+    )
 
-    disc_eff = disc
-    wh_eff = wh
-
-    if almost_equal(ttl, total_full):
-        pass  # usa ambos tal cual
-    elif almost_equal(ttl, total_with_disc):
-        wh_eff = Decimal("0")
-    elif almost_equal(ttl, total_with_wh):
-        disc_eff = Decimal("0")
-    elif almost_equal(ttl, total_sans_adj):
-        disc_eff = Decimal("0")
-        wh_eff = Decimal("0")
+    if almost_equal(ttl, computed_total_no_disc):
+        disc_effective = Decimal("0")
+    elif almost_equal(ttl, computed_total_with_disc):
+        disc_effective = disc
     else:
-        # Inferir delta faltante
-        delta = (sub + tax - ttl).quantize(
-            DEC_Q, rounding=ROUND_HALF_UP
-        )  # cuánto hay que restar
-        if delta >= Decimal("0"):
-            # Preferencia: si el texto indica retención y el modelo no la trajo bien, asigna a retención
-            if has_withholding_in_text and (wh == 0 or almost_equal(delta, wh)):
-                wh_eff = delta
-                disc_eff = Decimal("0")
-                parsed.notes = (
-                    parsed.notes + " | " if parsed.notes else ""
-                ) + f"Retención inferida a partir de totales: {delta}"
-            # Si el modelo trajo ambos y suman delta, úsalo
-            elif (disc + wh) == delta:
-                disc_eff, wh_eff = disc, wh
-            # Si solo cuadra con descuento
-            elif disc > 0 and almost_equal(delta, disc):
-                disc_eff = disc
-                wh_eff = Decimal("0")
-                parsed.notes = (
-                    parsed.notes + " | " if parsed.notes else ""
-                ) + f"Descuento confirmado por totales: {disc}"
-            # Si solo cuadra con retención
-            elif wh > 0 and almost_equal(delta, wh):
-                wh_eff = wh
-                disc_eff = Decimal("0")
-                parsed.notes = (
-                    parsed.notes + " | " if parsed.notes else ""
-                ) + f"Retención confirmada por totales: {wh}"
-            else:
-                # Reparto heurístico: si hay retención detectada en texto, toma todo como retención; si no, descuento
-                if has_withholding_in_text:
-                    wh_eff = delta
-                    disc_eff = Decimal("0")
-                    parsed.notes = (
-                        parsed.notes + " | " if parsed.notes else ""
-                    ) + f"Retención inferida a partir de totales: {delta}"
-                else:
-                    disc_eff = delta
-                    wh_eff = Decimal("0")
-                    parsed.notes = (
-                        parsed.notes + " | " if parsed.notes else ""
-                    ) + f"Descuento inferido a partir de totales: {delta}"
-        # si delta < 0, dejaremos mismatch abajo
+        # Infiera "descuento/retención" desde totales si hace cuadrar
+        inferred = (sub + tax - ttl).quantize(DEC_Q, rounding=ROUND_HALF_UP)
+        if inferred >= Decimal("0") and almost_equal(
+            ttl, (sub - inferred + tax).quantize(DEC_Q, rounding=ROUND_HALF_UP)
+        ):
+            disc_effective = inferred
+            label = "Retención inferida" if is_withholding else "Descuento inferido"
+            note = f"{label} a partir de totales: {inferred}"
+            parsed.notes = (parsed.notes + " | " + note) if parsed.notes else note
+        else:
+            disc_effective = disc  # quedará mismatch
 
-    computed_total = (sub - disc_eff - wh_eff + tax).quantize(
+    computed_total = (sub - disc_effective + tax).quantize(
         DEC_Q, rounding=ROUND_HALF_UP
     )
     math_ok = almost_equal(ttl, computed_total)
 
-    # 4d) % IVA: retención NO reduce base, descuento SÍ
-    base_for_vat = max(Decimal("0"), (sub - disc_eff))
+    # --- Tasa de IVA: si hay retención, NO reduce la base ---
+    if is_withholding:
+        base_for_vat = sub
+    else:
+        base_for_vat = max(Decimal("0"), (sub - disc_effective))
+
     computed_rate = (
         ((tax / base_for_vat) * Decimal("100")).quantize(Decimal("0.01"))
         if base_for_vat > 0
@@ -461,26 +444,10 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
     )
     rate_ok = almost_equal(parsed.tax_rate_percent, computed_rate, Decimal("0.1"))
 
-    # 4e) % Retención si procede (si no vino o vino 0 y tenemos wh_eff, infiere)
-    wh_rate_reported = Decimal(
-        str(getattr(parsed, "withholding_rate_percent", Decimal("0")))
-    )
-    wh_rate_ok = True
-    computed_wh_rate = Decimal("0")
-    if wh_eff > 0 and sub > 0:
-        computed_wh_rate = ((wh_eff / sub) * Decimal("100")).quantize(Decimal("0.01"))
-        if wh_rate_reported > 0:
-            wh_rate_ok = almost_equal(
-                wh_rate_reported, computed_wh_rate, Decimal("0.1")
-            )
-        else:
-            # si el modelo no lo trajo, completamos el campo
-            parsed.withholding_rate_percent = computed_wh_rate
-
     problems = []
     warnings = []
 
-    # Evidencias: solo rompen en strict
+    # Evidencias: solo rompen en modo strict
     if full_text and settings.EVIDENCE_POLICY == "strict" and missing_evidence:
         problems.append({"type": "evidence_missing", "details": missing_evidence})
     elif full_text and settings.EVIDENCE_POLICY == "numbers" and missing_evidence:
@@ -502,32 +469,26 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
                 "reported_rate_percent": str(parsed.tax_rate_percent),
             }
         )
-    # Validación de tasa de retención (si aplica)
-    if wh_eff > 0 and wh_rate_reported > 0 and not wh_rate_ok:
-        problems.append(
-            {
-                "type": "withholding_rate_mismatch",
-                "expected_rate_percent": str(computed_wh_rate),
-                "reported_rate_percent": str(wh_rate_reported),
-            }
-        )
 
     # Notas informativas
     if line_discounts:
         msg = f"Descuentos por línea detectados: [{', '.join(f'{d:.2f}%' for d in line_discounts)}]"
-        if disc_eff == 0 and disc > 0:
+        if disc_effective == 0 and disc > 0:
             msg += ". El descuento informado no afecta a los totales."
-        elif disc_eff == 0 and disc == 0:
+        elif disc_effective == 0 and disc == 0:
             msg += ". No afectan al total final."
         parsed.notes = (parsed.notes + " | " + msg) if parsed.notes else msg
 
-    if wh_eff > 0:
+    if is_withholding:
         msg = "Retención detectada"
-        if has_withholding_in_text and "percent" in withholding_detected:
-            msg += f" {withholding_detected['percent']}%"
-        msg += f" por {wh_eff}"
-        if computed_wh_rate > 0:
-            msg += f" (≈ {computed_wh_rate}%)"
+        if "percent" in withholding:
+            msg += f" {withholding['percent']}%"
+        if "amount" in withholding:
+            msg += f" por {withholding['amount']}"
+        # Si no hay amount en texto, estimar desde totales
+        inferred_w = (sub + tax - ttl).quantize(DEC_Q, rounding=ROUND_HALF_UP)
+        if "amount" not in withholding and inferred_w:
+            msg += f". Importe inferido: {inferred_w}"
         parsed.notes = (parsed.notes + " | " + msg) if parsed.notes else msg
 
     if problems:
