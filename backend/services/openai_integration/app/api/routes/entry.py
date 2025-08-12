@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Body, File, UploadFile
+from typing import Optional
+from fastapi import APIRouter, Body, File, Form, UploadFile
 from app.core.logging import logger
 from app.services.openai.account_classifier import classify_account
 from app.services.openai.parser_document import extract_data_from_invoice
@@ -6,6 +7,11 @@ from app.services.openai.schemas.classification_tax_request import Clasificacion
 from app.services.openai.search_by_cif import search_cif_by_partner
 from app.services.openai.tax_id_classifier import classify_tax_id
 from exponential_core.openai import InvoiceTotalsSchema
+
+from app.services.openai.tax_id_extractor import (
+    PartnerTaxIdSchema,
+    extract_partner_taxid,
+)
 
 router = APIRouter()
 
@@ -65,3 +71,15 @@ async def parser_invoice(file: UploadFile = File(...)):
         "evidence": result.evidence,
         "notes": result.notes,
     }
+
+
+@router.post("/extract-partner-taxid", response_model=PartnerTaxIdSchema)
+async def extract_patner(
+    client_tax_id: Optional[str] = Form(
+        None, description="CIF/NIF/VAT del cliente para excluir"
+    ),
+    file: UploadFile = File(...),
+):
+    result = await extract_partner_taxid(client_tax_id=client_tax_id, file=file)
+    
+    return result.model_dump(mode="json")

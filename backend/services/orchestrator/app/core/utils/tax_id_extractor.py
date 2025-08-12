@@ -231,7 +231,8 @@ class TaxIdExtractor:
         raise MultipleCompanyTaxIdMatchesError(matches)
 
     def get_partner_tax_id_or_fail(
-        self, company_vat: str, taggun_data: TaggunExtractedInvoice
+        self,
+        company_vat: str,
     ) -> str | list:
         """
         Devuelve el identificador fiscal del proveedor (partner), excluyendo el de la empresa contratada.
