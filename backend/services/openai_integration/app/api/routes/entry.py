@@ -1,12 +1,11 @@
-from typing import List
-from fastapi import APIRouter, Body, File, Query, UploadFile
+from fastapi import APIRouter, Body, File, UploadFile
 from app.core.logging import logger
 from app.services.openai.account_classifier import classify_account
 from app.services.openai.parser_document import extract_data_from_invoice
 from app.services.openai.schemas.classification_tax_request import ClasificacionRequest
 from app.services.openai.search_by_cif import search_cif_by_partner
 from app.services.openai.tax_id_classifier import classify_tax_id
-from app.services.zoho.schemas.chart_of_accounts_response import ZohoAccount
+from exponential_core.openai import InvoiceTotalsSchema
 
 router = APIRouter()
 
@@ -44,7 +43,7 @@ async def search_partner(
     return await search_cif_by_partner(partner_name=partner_name)
 
 
-@router.post("/parser_invoice")
+@router.post("/extract-invoice", response_model=InvoiceTotalsSchema)
 async def parser_invoice(file: UploadFile = File(...)):
     """
     Recibe un PDF y devuelve:
@@ -53,6 +52,7 @@ async def parser_invoice(file: UploadFile = File(...)):
     Valida aritmética y, si el PDF es digital y está habilitado, presencia de evidencias.
     """
     result = await extract_data_from_invoice(file)
+
     return {
         "currency": result.currency,
         "subtotal": result.subtotal.model_dump(),
@@ -60,6 +60,8 @@ async def parser_invoice(file: UploadFile = File(...)):
         "discount_amount": result.discount_amount.model_dump(),
         "total": result.total.model_dump(),
         "tax_rate_percent": str(result.tax_rate_percent),
+        "withholding_amount": result.withholding_amount.model_dump(),
+        "withholding_rate_percent": str(result.withholding_rate_percent),
         "evidence": result.evidence,
         "notes": result.notes,
     }

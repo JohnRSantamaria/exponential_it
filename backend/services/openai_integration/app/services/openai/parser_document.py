@@ -1,309 +1,31 @@
-# parser_document.py
-
-from typing import List, Optional, Dict
-from decimal import Decimal, ROUND_HALF_UP
-import re
-import base64
 import json
-import unicodedata
 
-from fastapi import APIRouter, UploadFile, HTTPException, status
-from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, Field, ValidationError
+from typing import List, Dict
 from openai import AsyncOpenAI
+from pydantic import ValidationError
+from decimal import Decimal, ROUND_HALF_UP
+
+from fastapi.encoders import jsonable_encoder
+from fastapi import UploadFile, HTTPException, status
 
 from app.core.settings import settings
 from app.core.logging import logger
+from exponential_core.openai import InvoiceTotalsSchema, MoneySchema
 
-# --- PDF -> PNG & texto con PyMuPDF (puro Python, ideal para Alpine) ---
-import fitz  # PyMuPDF
-
-router = APIRouter()
-
-# ===================== Modelos estructurados =====================
-
-
-class Money(BaseModel):
-    raw: str = Field(..., description="Texto tal cual aparece (ej: '7.685,38')")
-    value: Decimal = Field(
-        ..., description="Valor numérico normalizado en punto decimal (ej: 7685.38)"
-    )
-
-
-class InvoiceTotals(BaseModel):
-    currency: str = Field(..., description="Moneda detectada, p.ej. 'EUR'")
-    subtotal: Money
-    tax_amount: Money
-    discount_amount: Money
-    total: Money
-    tax_rate_percent: Decimal = Field(
-        ..., description="Porcentaje total de impuestos, p.ej. 21.0"
-    )
-    # NUEVO: Retenciones fiscales (IRPF, 'Retención Fiscal', etc.)
-    withholding_amount: Money = Field(
-        default_factory=lambda: Money(raw="0", value=Decimal("0.00")),
-        description="Importe total de retenciones. Suele verse como negativo en el documento.",
-    )
-    withholding_rate_percent: Decimal = Field(
-        default=Decimal("0.0"),
-        description="Porcentaje de retención si aparece impreso (p.ej. 19.0).",
-    )
-    # Evidencias: recortes textuales que el modelo vio en el documento
-    evidence: Dict[str, List[str]] = Field(
-        ..., description="Evidencias por campo (ej: {'total': ['TOTAL 7.685,38 €']})"
-    )
-    notes: Optional[str] = None
-
-
-# ===================== Utilidades =====================
-
-DEC_Q = Decimal("0.01")
-
-
-def eur_text_to_decimal(s: str) -> Decimal:
-    """
-    Convierte formatos EU '7.685,38' -> Decimal('7685.38')
-    Elimina símbolos no numéricos manteniendo signos y separadores.
-    """
-    s = s.strip()
-    s = re.sub(r"[^\d,.\-+]", "", s)
-    # Si hay coma como separador decimal, elimina puntos de miles
-    if "," in s and s.count(",") == 1:
-        s = s.replace(".", "").replace(",", ".")
-    return Decimal(s)
-
-
-def almost_equal(a: Decimal, b: Decimal, tol: Decimal = DEC_Q) -> bool:
-    return (a - b).copy_abs() <= tol
-
-
-def normalize_money(m: Money) -> Decimal:
-    """
-    Preferir parsear desde raw cuando:
-      - raw tiene un signo ('-' o '+'), o
-      - el valor parseado desde raw es no-cero.
-    Si no, usar value.
-    """
-    parsed_from_raw = None
-    if m.raw is not None and str(m.raw).strip():
-        try:
-            parsed_from_raw = eur_text_to_decimal(str(m.raw))
-        except Exception:
-            parsed_from_raw = None
-
-    if parsed_from_raw is not None:
-        if (
-            ("-" in str(m.raw))
-            or ("+" in str(m.raw))
-            or (parsed_from_raw != Decimal("0"))
-        ):
-            return parsed_from_raw
-
-    if m.value is not None:
-        return Decimal(m.value)
-
-    if parsed_from_raw is not None:
-        return parsed_from_raw
-
-    return Decimal("0")
-
-
-def pdf_to_data_uris(pdf_bytes: bytes, max_pages: int, dpi: int) -> list[str]:
-    """
-    Renderiza hasta max_pages del PDF a PNG y devuelve data URIs ('data:image/png;base64,...').
-    """
-    uris: list[str] = []
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        n = min(len(doc), max_pages)
-        for i in range(n):
-            page = doc[i]
-            zoom = dpi / 72.0
-            mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat, alpha=False)
-            png_bytes = pix.tobytes("png")
-            b64 = base64.b64encode(png_bytes).decode("ascii")
-            uris.append(f"data:image/png;base64,{b64}")
-    return uris
-
-
-def extract_text_with_pymupdf(pdf_bytes: bytes) -> str:
-    """
-    Extrae texto si el PDF es 'digital'. En escaneados (solo imagen), devolverá poco o nada.
-    """
-    chunks = []
-    with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
-        for page in doc:
-            chunks.append(page.get_text("text") or "")
-    return "\n".join(chunks).strip()
-
-
-# --- Matching tolerante para evidencias ---
-
-
-def _normalize_for_match(s: str) -> str:
-    """
-    Normaliza texto para matching tolerante:
-    - lower
-    - quita diacríticos
-    - convierte ',' -> '.'
-    - elimina separadores y espacios
-    - mantiene dígitos, letras, '.', '%'
-    - colapsa puntos de miles previos al decimal
-    """
-    if not s:
-        return ""
-    s = unicodedata.normalize("NFKD", s)
-    s = "".join(ch for ch in s if not unicodedata.combining(ch))  # sin acentos
-    s = s.lower()
-    s = s.replace(",", ".")
-    s = re.sub(r"[^a-z0-9.%]+", "", s)
-    if s.count(".") >= 2:
-        parts = s.split(".")
-        suff = ""
-        if parts[-1].endswith("%"):
-            parts[-1], suff = parts[-1][:-1], "%"
-        core = "".join(parts[:-1]) + "." + parts[-1]
-        s = core + suff
-    return s
-
-
-def check_evidence_in_text(
-    evidence: Dict[str, List[str]], full_text: str
-) -> Dict[str, List[str]]:
-    """
-    Matching tolerante: coma/punto, espacios, %, miles, etc.
-    """
-    missing: Dict[str, List[str]] = {}
-    norm_text = _normalize_for_match(full_text)
-
-    for field, snippets in evidence.items():
-        miss_here = []
-        for snip in snippets:
-            if not snip or not snip.strip():
-                continue
-            ns = _normalize_for_match(snip)
-
-            ok = False
-            if ns:
-                if ns in norm_text:
-                    ok = True
-                else:
-                    if ns.endswith("%"):
-                        ns2 = ns[:-1]
-                        if ns2 in norm_text:
-                            ok = True
-                    if not ok and re.fullmatch(r"\d+(\.\d+)?%?", ns):
-                        base = ns[:-1] if ns.endswith("%") else ns
-                        if base in norm_text:
-                            ok = True
-                        else:
-                            trimmed = re.sub(r"\.0+$", "", base)
-                            if trimmed and trimmed in norm_text:
-                                ok = True
-
-            if not ok:
-                miss_here.append(snip)
-
-        if miss_here:
-            missing[field] = miss_here
-
-    return missing
-
-
-# Helpers para política "numbers"
-def _is_numeric_snippet(s: str) -> bool:
-    return bool(re.search(r"\d", s or ""))
-
-
-def _any_numeric_snippet_present(snippets: list[str], full_text: str) -> bool:
-    norm_text = _normalize_for_match(full_text)
-    for snip in snippets or []:
-        if _is_numeric_snippet(snip):
-            if _normalize_for_match(snip) in norm_text:
-                return True
-    return False
-
-
-# ==== Helpers extra: formateo y evidencia sintética ====
-
-
-def format_eur_es(v: Decimal) -> str:
-    """
-    Devuelve número con formato español: 1234.56 -> '1.234,56 €'
-    """
-    q = Decimal("0.01")
-    vq = v.quantize(q)
-    s = f"{vq:.2f}"  # 1234.56
-    entero, dec = s.split(".")
-    # miles
-    entero_rev = entero[::-1]
-    grupos = [entero_rev[i : i + 3] for i in range(0, len(entero_rev), 3)]
-    entero_fmt = ".".join(g[::-1] for g in grupos[::-1])
-    return f"{entero_fmt},{dec} €"
-
-
-def _add_evidence_snippet(evidence: Dict[str, List[str]], key: str, snippet: str):
-    if not snippet:
-        return
-    evidence.setdefault(key, [])
-    if snippet not in evidence[key]:
-        evidence[key].append(snippet)
-
-
-# Detectar descuentos por línea en el texto
-def detect_line_level_discounts(full_text: str) -> list[Decimal]:
-    """
-    Busca patrones de descuentos por línea, p.ej. 'DTO. 4,00 %', 'Descuento 10%'.
-    Devuelve lista de porcentajes como Decimal.
-    """
-    if not full_text:
-        return []
-    pat = re.compile(
-        r"(?:dto\.?|descuento)\s*[:\-]?\s*(\d{1,3}(?:[.,]\d+)?)\s*%", re.IGNORECASE
-    )
-    found: list[Decimal] = []
-    for m in pat.finditer(full_text):
-        pct = m.group(1).replace(",", ".")
-        try:
-            found.append(Decimal(pct))
-        except Exception:
-            continue
-    return found
-
-
-# Detectar retenciones (IRPF, Retención Fiscal, etc.) mejorado
-RET_WITHHOLD_RE = re.compile(
-    r"(?:retenci[óo]n(?:\s+(?:fiscal|irpf))?|irpf|ret\.)"
-    r"[^%\n\r]*?(\d{1,2}(?:[.,]\d+)?)\s*%"  # porcentaje
-    r"[^0-9\-+]*"  # relleno
-    r"([-+]?[\d.\s]+(?:[.,]\d{2}))?",  # importe opcional
-    re.IGNORECASE,
+from app.services.openai.utils.formatter import (
+    DEC_Q,
+    _add_evidence_snippet,
+    _any_numeric_snippet_present,
+    _is_numeric_snippet,
+    almost_equal,
+    check_evidence_in_text,
+    detect_line_level_discounts,
+    detect_withholding,
+    extract_text_with_pymupdf,
+    format_eur_es,
+    normalize_money,
+    pdf_to_data_uris,
 )
-
-
-def detect_withholding(full_text: str) -> Dict[str, Decimal]:
-    """
-    Detecta retenciones tipo 'Retención Fiscal 19% -81,20 €', 'IRPF 15 %'.
-    Devuelve {'percent': Decimal|None, 'amount': Decimal|None} si detecta algo, o {}.
-    """
-    out: Dict[str, Decimal] = {}
-    if not full_text:
-        return out
-    m = RET_WITHHOLD_RE.search(full_text)
-    if not m:
-        return out
-    try:
-        out["percent"] = Decimal(m.group(1).replace(",", "."))
-    except Exception:
-        pass
-    amt = m.group(2)
-    if amt:
-        try:
-            out["amount"] = eur_text_to_decimal(amt)
-        except Exception:
-            pass
-    return out
-
 
 # ===================== Prompt + JSON Schema para salida =====================
 
@@ -409,13 +131,13 @@ def _coerce_number(obj: dict, field: str):
                 obj[field] = 0.0
 
 
-def _patch_and_validate_invoice_json(json_text: str) -> InvoiceTotals:
+def _patch_and_validate_invoice_json(json_text: str) -> InvoiceTotalsSchema:
     try:
         data = json.loads(json_text)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"JSON inválido del modelo: {e}")
 
-    # Asegurar objetos Money presentes
+    # Asegurar objetos MoneySchema presentes
     for fld in [
         "subtotal",
         "tax_amount",
@@ -447,7 +169,7 @@ def _patch_and_validate_invoice_json(json_text: str) -> InvoiceTotals:
 
     # Validación final Pydantic (lanza ValidationError si algo no cuadra)
     try:
-        return InvoiceTotals.model_validate(data)
+        return InvoiceTotalsSchema.model_validate(data)
     except ValidationError as ve:
         logger.error(
             f"Estructura tras parcheo no valida: {json.dumps(data, ensure_ascii=False)}"
@@ -462,7 +184,7 @@ async def _call_openai_for_invoice_with_images(
     client: AsyncOpenAI,
     user_prompt: str,
     image_data_uris: list[str],
-) -> InvoiceTotals:
+) -> InvoiceTotalsSchema:
     """
     Envía 1..N imágenes (data URIs PNG) + prompt. Intenta salida con JSON Schema,
     y si falla, hace fallback a json_object. Luego se parchea y valida con Pydantic.
@@ -510,10 +232,7 @@ async def _call_openai_for_invoice_with_images(
 
 
 # ===================== Servicio principal =====================
-
-
-@router.post("/extract-invoice", response_model=InvoiceTotals)
-async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
+async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotalsSchema:
     file_bytes = await file.read()
 
     api_key = settings.OPENAI_API_KEY
@@ -547,7 +266,7 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
 
     # 3) Llamada al modelo (imágenes + JSON mode)
     try:
-        parsed: InvoiceTotals = await _call_openai_for_invoice_with_images(
+        parsed: InvoiceTotalsSchema = await _call_openai_for_invoice_with_images(
             client=client,
             user_prompt=prompt,
             image_data_uris=data_uris,
@@ -674,7 +393,7 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotals:
         # Si el valor del objeto es 0 pero hay inferido, actualiza el objeto:
         if almost_equal(wh_effective, Decimal("0")) and inferred_wh != 0:
             try:
-                parsed.withholding_amount = Money(
+                parsed.withholding_amount = MoneySchema(
                     raw=format_eur_es(inferred_wh), value=inferred_wh
                 )
                 wh_effective = inferred_wh
