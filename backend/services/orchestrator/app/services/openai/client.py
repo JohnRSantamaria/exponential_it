@@ -1,17 +1,17 @@
 import httpx
-import json
 
+from fastapi import UploadFile
 from app.core.client_provider import ProviderConfig
 from app.services.openai.schemas.account_category import AccountCategory
 from app.core.settings import settings
 
 from exponential_core.exceptions import CustomAppException
+from exponential_core.openai import InvoiceTotalsSchema, InvoicePartiesSchema
 from app.core.logging import logger
 from app.services.openai.schemas.classification_tax_request import (
     ClasificacionRequest,
     TaxIdResponseSchema,
 )
-from app.services.openai.schemas.search_cif import PartnerRequest
 
 
 class OpenAIService:
@@ -111,4 +111,72 @@ class OpenAIService:
         except Exception as exc:
             raise CustomAppException(
                 f"Error inesperado al buscar CIF con OpenAI: {exc}"
+            )
+
+    async def get_amounts(
+        self, file: UploadFile, file_content: bytes
+    ) -> InvoiceTotalsSchema:
+        """
+        Recibe un PDF y devuelve:
+        - subtotal, tax_amount, discount_amount, total, tax_rate_percent
+        - evidencias (snippets)
+        Valida aritmética y, si el PDF es digital y está habilitado, presencia de evidencias.
+        """
+        url = f"{self.path}/extract-invoice"
+        logger.debug(f"Obteniendo los totales a través de Open AI en: {url}")
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    url=url,
+                    files={"file": (file.filename, file_content, file.content_type)},
+                )
+
+            response.raise_for_status()
+
+            return InvoiceTotalsSchema(**response.json())
+
+        except httpx.ReadTimeout:
+            raise CustomAppException(
+                "Tiempo de espera excedido al buscar los totales con OpenAI"
+            )
+
+        except httpx.RequestError as exc:
+            raise CustomAppException(f"Error de conexión con OpenAI: {exc}")
+
+        except Exception as exc:
+            raise CustomAppException(
+                f"Error inesperado al buscar los totales con OpenAI: {exc}"
+            )
+
+    async def get_parties_tax_id(
+        self, file: UploadFile, file_content: bytes
+    ) -> InvoicePartiesSchema:
+        """"""
+
+        url = f"{self.path}/extract-parties-taxid"
+        logger.debug(f"Obteniendo los totales a través de Open AI en: {url}")
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(
+                    url=url,
+                    files={"file": (file.filename, file_content, file.content_type)},
+                )
+
+            response.raise_for_status()
+
+            return InvoicePartiesSchema(**response.json())
+
+        except httpx.ReadTimeout:
+            raise CustomAppException(
+                "Tiempo de espera excedido al buscar los totales con OpenAI"
+            )
+
+        except httpx.RequestError as exc:
+            raise CustomAppException(f"Error de conexión con OpenAI: {exc}")
+
+        except Exception as exc:
+            raise CustomAppException(
+                f"Error inesperado al buscar los totales con OpenAI: {exc}"
             )

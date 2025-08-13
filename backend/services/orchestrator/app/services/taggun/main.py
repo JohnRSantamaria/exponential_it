@@ -1,12 +1,25 @@
 import asyncio
+from decimal import Decimal
+from typing import Any, Optional, Set
 
 from fastapi import UploadFile
 
+from exponential_core.exceptions import CustomAppException
+
 from app.core.logging import logger
+from app.core.settings import settings
 from app.core.secrets import SecretsService
+from app.core.client_provider import ProviderConfig
+from app.core.utils.tax_id_extractor import TaxIdExtractor
+from app.services.openai.client import OpenAIService
+from app.services.taggun.extractor import TaggunExtractor
+from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.zoho.processor import zoho_process
 from app.services.upload.process import save_file_dropbox
-from app.services.taggun.utils.valid_size import validate_image_dimensions
+from app.services.taggun.utils.formatter import (
+    to_tax_candidates,
+    validate_image_dimensions,
+)
 from app.services.odoo.v16.processor import odoo_process as odoo_process_v16
 from app.services.odoo.v18.processor import odoo_process as odoo_process_v18
 
@@ -19,7 +32,6 @@ from .register import register_scan
 async def handle_invoice_scan(
     recipient: str, file: UploadFile, file_content: bytes | None = None
 ):
-
     file_content = file_content or await file.read()
     logger.info(f"Inicia el Extraccion de {file.filename} para : {recipient}")
 
@@ -28,28 +40,117 @@ async def handle_invoice_scan(
     accounts_response = await get_accounts_by_email(email=recipient)
     all_tax_ids = [a.account_tax_id for a in accounts_response.accounts]
 
-    payload = await extract_ocr_payload(file=file, file_content=file_content)
+    config = ProviderConfig(server_url=settings.URL_OPENAPI)
+    openai_service = OpenAIService(config=config)
 
-    logger.info("Inicio de la extracción de datos OCR.")
-    taggun_data = extract_taggun_data(payload)
+    logger.info("Comienza extracción del servicio Taggun")
+    payload = await extract_ocr_payload(file=file, file_content=file_content)
+    logger.debug("Payload obtenido con éxito")
+
+    taggun_extractor = TaggunExtractor(payload=payload)
+    taggun_basic_fields = taggun_extractor.extrac_base_values()
+
+    amount_discount = taggun_basic_fields.amount_discount
+    amount_tax = taggun_basic_fields.amount_tax
+    amount_total = taggun_basic_fields.amount_total
+    amount_untaxed = taggun_basic_fields.amount_untaxed
+
+    try:
+        tax_canditate = taggun_extractor.calculate_tax_candidates(
+            amount_discount=amount_discount,
+            amount_tax=amount_tax,
+            amount_total=amount_total,
+            amount_untaxed=amount_untaxed,
+        )
+
+        corrected_values = taggun_extractor.corrected_values
+
+        if corrected_values.get("amount_untaxed") is not None:
+            amount_untaxed = corrected_values["amount_untaxed"]
+
+        if corrected_values.get("amount_total") is not None:
+            amount_total = corrected_values["amount_total"]
+
+        if corrected_values.get("amount_tax") is not None:
+            amount_tax = corrected_values["amount_tax"]
+
+    except CustomAppException as ce:
+        logger.error(f"Error en la validación de los valores obtenidos | {ce}")
+        logger.debug("Intentando obtener valores con OpenAI")
+        response = await openai_service.get_amounts(
+            file=file, file_content=file_content
+        )
+
+        amount_tax = response.tax_amount.value
+        amount_total = response.total.value
+        amount_untaxed = response.subtotal.value
+        amount_discount = response.discount_amount.value
+        tax_canditate = response.tax_rate_percent
+        logger.debug("Valores obtenidos con éxito")
+
+    address = taggun_extractor.extract_address()
+
+    line_items = taggun_extractor.parse_line_items(
+        amount_untaxed=amount_untaxed,
+    )
+
+    tax_canditates = to_tax_candidates(tax_canditate)
+
+    taggun_data = TaggunExtractedInvoice(
+        partner_name=taggun_basic_fields.partner_name,
+        partner_vat=taggun_basic_fields.partner_vat,
+        date=taggun_basic_fields.date,
+        invoice_number=taggun_basic_fields.invoice_number,
+        amount_total=amount_total,
+        amount_tax=amount_tax,
+        amount_discount=amount_discount,
+        amount_untaxed=amount_untaxed,
+        address=address,
+        line_items=line_items,
+        tax_canditates=tax_canditates,
+    )
 
     payload_text = payload.get("text", {}).get("text", "")
-    logger.info("Búsqueda de Tax ID de la empresa.")
-    company_vat, partner_vat, extractor = find_tax_ids(
-        payload_text=payload_text,
+    extractor = TaxIdExtractor(
+        text=payload_text,
         all_tax_ids=all_tax_ids,
-        taggun_data=taggun_data,
     )
-    taggun_data.partner_vat = partner_vat
+
+    try:
+        logger.info("Comienza búsqueda de los Tax ID")
+
+        company_vat, partner_vat = find_tax_ids(extractor=extractor)
+        taggun_data.partner_vat = partner_vat
+
+    except CustomAppException as te:
+        logger.error(f"Fallo en la búsqueda de los Tax ID : {te}")
+        response = await openai_service.get_parties_tax_id(
+            file=file,
+            file_content=file_content,
+        )
+        logger.debug(response.model_dump(mode="json"))
+
+        company_vat, partner_vat = extractor.resolve_company_and_partner_vat(
+            supposed_company_vat=response.client_tax_it,
+            supposed_partner_vat=response.partner_tax_it,
+        )
+
+        taggun_data.partner_vat = partner_vat
+        taggun_data.partner_name = response.partner_name
+
+    except Exception as e:
+        raise CustomAppException(e)
 
     account = get_account_match(accounts_response, company_vat, extractor)
+    company_vat = account.account_tax_id
+    account_id = account.account_id
 
     await register_scan(
         user_id=accounts_response.user_id,
-        account_id=account.account_id,
+        account_id=account_id,
     )
     logger.info(
-        f"Registro de escaneo completado para {account.account_name} - {account.account_tax_id} "
+        f"Registro de escaneo completado para {account.account_name} - {company_vat} "
     )
 
     secrets_service = await SecretsService(company_vat=company_vat).load()
@@ -72,6 +173,7 @@ async def handle_invoice_scan(
                 file_content=file_content,
                 taggun_data=taggun_data,
                 company_vat=company_vat,
+                openai_service=openai_service,
             )
         elif odoo_version == "V18":
             await odoo_process_v18(

@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Dict, Set
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation, getcontext
+from typing import Dict, Optional, Set, List, Any, Iterable
 
 from app.core.settings import settings
 from app.core.logging import logger
@@ -7,27 +8,67 @@ from app.services.zoho.exceptions import TaxPercentageNotFound
 from app.services.taggun.schemas.taggun_models import (
     AddressSchema,
     LineItemSchema,
-    TaggunExtractedInvoice,
+    TaggunExtractedInvoiceBasic,
 )
+
+# Aumenta precisión global (el redondeo a 2 decimales lo maneja quant2)
+getcontext().prec = 38
+
+
+def D(val: Any, default: str = "0") -> Decimal:
+    """
+    Conversión segura a Decimal:
+    - Si ya es Decimal, retorna tal cual.
+    - Si es float -> usa str(valor) para evitar binario.
+    - Si es str -> normaliza coma decimal a punto; strip.
+    - Si falla -> retorna Decimal(default).
+    """
+    if isinstance(val, Decimal):
+        return val
+    try:
+        if val is None:
+            return Decimal(default)
+        if isinstance(val, float):
+            return Decimal(str(val))
+        if isinstance(val, int):
+            return Decimal(val)
+        if isinstance(val, str):
+            s = val.strip().replace(",", ".")
+            if s == "":
+                return Decimal(default)
+            return Decimal(s)
+        return Decimal(default)
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal(default)
+
+
+def quant2(x: Decimal) -> Decimal:
+    """Redondeo financiero a 2 decimales con HALF_UP."""
+    return D(x).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 class TaggunExtractor:
-    def __init__(self, payload):
+    def __init__(self, payload: dict):
         self.ocr_data = payload
-        self.candidates: Set[float] = set()
-        self.corrected_values: Dict[str:float] = {}
+        self.candidates: Set[Decimal] = set()
+        self.corrected_values: Dict[str, Decimal] = {}
 
-    @staticmethod
-    def safe_float(value):
-        try:
-            return float(value)
-        except (ValueError, TypeError):
-            return 0.0
+        # Convierte tasas estándar a Decimal una sola vez
+        self._standard_rates: List[Decimal] = [
+            D(r) for r in getattr(settings, "TAX_STANDARD_RATES", [])
+        ]
 
+        # Tolerancias como Decimal
+        self._rate_tolerance: Decimal = Decimal("0.30")  # tolerancia en % de tasa
+        self._sum_tolerance: Decimal = Decimal("0.05")  # tolerancia en dinero
+
+    # -----------------------
+    # Utils
+    # -----------------------
     @staticmethod
     def parse_iso_date(value: str):
         """
-        Intenta convertir una cadena ISO (como '2024-01-01T00:00:00Z') en un objeto `date`.
+        Intenta convertir una cadena ISO (p.ej. '2024-01-01T00:00:00Z') en date.
         Retorna None si no es válida.
         """
         try:
@@ -35,37 +76,45 @@ class TaggunExtractor:
         except Exception:
             return None
 
-    @staticmethod
-    def normalize(value: float, tolerance: float = 0.03) -> float:
-        rounded = round(value, 2)
-        for standard in settings.TAX_STANDARD_RATES:
+    def normalize(
+        self, value: Decimal, tolerance: Decimal = Decimal("0.03")
+    ) -> Decimal:
+        """
+        Redondea a 2 decimales y aproxima a la tasa estándar más cercana
+        dentro de una tolerancia (en puntos porcentuales, p.ej. 0.03).
+        """
+        rounded = quant2(value)
+        for standard in self._standard_rates:
             if abs(rounded - standard) <= tolerance:
                 return standard
         return rounded
 
     @staticmethod
     def _majority_gate(
-        amount_untaxed: float, amount_total: float, amount_tax: float
+        amount_untaxed: Decimal, amount_total: Decimal, amount_tax: Decimal
     ) -> bool:
+        """Al menos 2 de 3 montos deben ser > 0 para continuar."""
         return ((amount_untaxed > 0) + (amount_total > 0) + (amount_tax > 0)) >= 2
 
     def _raise_error(self):
         raise TaxPercentageNotFound()
 
-    def _add_candidate(self, percentage: float) -> None:
+    def _add_candidate(self, percentage: Decimal) -> None:
         normalized = self.normalize(percentage)
-        if normalized in settings.TAX_STANDARD_RATES:
+        # Acepta exactamente iguales a un estándar (o ya normalizado a él)
+        if any(abs(normalized - r) <= Decimal("0.00") for r in self._standard_rates):
             self.candidates.add(normalized)
 
-    def _compute_percentage(self, untaxed: float, tax: float) -> None:
+    def _compute_percentage(self, untaxed: Decimal, tax: Decimal) -> None:
         if untaxed <= 0:
             return
-        percentage = (tax / untaxed) * 100
+        percentage = quant2((tax / untaxed) * Decimal("100"))
         self._add_candidate(percentage)
 
-    def _try_paths(self, *paths, default=""):
+    def _try_paths(self, *paths: Iterable[List[str]], default=""):
+        """Intenta distintos paths dentro del payload OCR, retornando el primero que exista."""
         for path in paths:
-            value = self.ocr_data
+            value: Any = self.ocr_data
             for key in path:
                 try:
                     value = value[key]
@@ -76,6 +125,9 @@ class TaggunExtractor:
                 return value
         return default
 
+    # -----------------------
+    # Address
+    # -----------------------
     def extract_address(self) -> AddressSchema:
         return AddressSchema(
             street=self._try_paths(["merchantAddress", "data"]),
@@ -89,29 +141,30 @@ class TaggunExtractor:
             website=self._try_paths(["merchantWebsite", "data"]),
         )
 
+    # -----------------------
+    # Line Items
+    # -----------------------
     def extract_line_items(self) -> list:
         items = self._try_paths(["entities", "productLineItems"], default=[])
         return items if isinstance(items, list) else []
 
     def parse_line_items(
         self,
-        amount_total: float,
-        amount_untaxed: float,
-        amount_discount: float,
-    ) -> list[LineItemSchema]:
+        amount_untaxed: Decimal,
+    ) -> List[LineItemSchema]:
+        """
+        Devuelve ítems consistentes con el monto total global.
+        Si la suma no coincide con amount_total, crea un solo ítem
+        que cumpla con el total exacto (se ignoran descuentos).
+        """
         raw_items = self.extract_line_items()
-        parsed_items: list[LineItemSchema] = []
+        parsed_items: List[LineItemSchema] = []
 
-        EPS = 0.05
+        EPS = self._sum_tolerance
+        total_expected = quant2(amount_untaxed or Decimal("0"))
 
-        untaxed_expected = (amount_untaxed or 0.0) - (abs(amount_discount or 0.0))
-        total_expected = amount_total or 0.0
-
-        products_name = []
-        sum_qty = 0
-        sum_subtotal = 0.0
-        sum_total = 0.0
-        have_any_total_price = False
+        products_name: List[str] = []
+        sum_total: Decimal = Decimal("0")
 
         for item in raw_items:
             data = item.get("data", {}) or {}
@@ -119,58 +172,51 @@ class TaggunExtractor:
             name = (data.get("name", {}) or {}).get("data", "") or ""
             qty = data.get("quantity", {}) or {}
             qty = qty.get("data", 0) or 0
-            unit_price = self.safe_float((data.get("unitPrice", {}) or {}).get("data"))
-            total_price = self.safe_float(
-                (data.get("totalPrice", {}) or {}).get("data")
-            )
 
+            unit_price = D((data.get("unitPrice", {}) or {}).get("data"))
+            total_price = D((data.get("totalPrice", {}) or {}).get("data"))
+
+            # Normaliza tipos
             qty = int(qty) if isinstance(qty, int) else (qty or 0)
-            unit_price = unit_price or 0.0
-            total_price = total_price or 0.0
+            unit_price = unit_price or Decimal("0")
+            total_price = total_price or Decimal("0")
 
             products_name.append(name.strip())
-            sum_qty += qty
-            sum_subtotal += unit_price * qty
-            if total_price:
-                have_any_total_price = True
-                sum_total += total_price
+
+            line_total = total_price if total_price > 0 else (unit_price * qty)
+            sum_total += line_total
 
             parsed_items.append(
                 LineItemSchema(
                     name=name.strip(),
                     quantity=qty,
-                    unit_price=unit_price,
-                    total_price=(
-                        total_price if have_any_total_price else unit_price * qty
-                    ),
+                    unit_price=quant2(unit_price),
+                    total_price=quant2(line_total),
                 )
             )
 
-        if not have_any_total_price:
-            sum_total = sum_subtotal
-
-        untaxed_ok = abs(sum_subtotal - untaxed_expected) <= EPS
-        total_ok = abs(sum_total - total_expected) <= EPS if total_expected else True
-
-        if untaxed_ok and total_ok:
-            return parsed_items
-
-        # 🔁 Fallback
-        merged_name = ", ".join([n for n in products_name if n]) or "Conceptos varios"
-        return [
-            LineItemSchema(
-                name=merged_name,
-                quantity=1,
-                unit_price=max(0.0, round(untaxed_expected, 2)),
-                total_price=(
-                    round(total_expected, 2)
-                    if total_expected
-                    else round(untaxed_expected, 2)
-                ),
+        # 🔍 Validar si la suma coincide con amount_total
+        if abs(sum_total - total_expected) > EPS or not parsed_items:
+            logger.warning("No coincide la suma de los items con el total")
+            # ❗ Forzamos un solo item que cuadre con amount_total
+            merged_name = (
+                ", ".join([n for n in products_name if n]) or "Conceptos varios"
             )
-        ]
+            return [
+                LineItemSchema(
+                    name=merged_name,
+                    quantity=1,
+                    unit_price=total_expected,
+                    total_price=total_expected,
+                )
+            ]
 
-    def extract_data(self) -> TaggunExtractedInvoice:
+        return parsed_items
+
+    # -----------------------
+    # Base values
+    # -----------------------
+    def extrac_base_values(self) -> TaggunExtractedInvoiceBasic:
         partner_name = self._try_paths(
             ["merchantName", "data"],
             ["entities", "merchantName", "data"],
@@ -189,67 +235,44 @@ class TaggunExtractor:
             ["entities", "invoiceNumber", "data"],
         )
 
-        amount_total = self._try_paths(["totalAmount", "data"], default=0.0)
-        amount_tax = self._try_paths(["taxAmount", "data"], default=0.0)
-        amount_untaxed = self._try_paths(["paidAmount", "data"], default=0.0)
-        amount_discount = self._try_paths(["discountAmount", "data"], default=0.0)
+        amount_total = D(self._try_paths(["totalAmount", "data"], default=0.0))
+        amount_tax = D(self._try_paths(["taxAmount", "data"], default=0.0))
+        amount_untaxed = D(self._try_paths(["paidAmount", "data"], default=0.0))
+        amount_discount = D(self._try_paths(["discountAmount", "data"], default=0.0))
         amount_discount = abs(amount_discount)
 
-        tax_canditates = self.calculate_tax_candidates(
-            amount_discount=amount_discount,
-            amount_tax=amount_tax,
-            amount_total=amount_total,
-            amount_untaxed=amount_untaxed,
-        )
+        taggun_basic_fields = {
+            "partner_name": partner_name,
+            "partner_vat": partner_vat,
+            "date": date_invoice,
+            "invoice_number": invoice_number,
+            "amount_total": quant2(amount_total),
+            "amount_tax": quant2(amount_tax),
+            "amount_untaxed": quant2(amount_untaxed),
+            "amount_discount": quant2(amount_discount),
+        }
 
-        corrected = self.corrected_values
+        return TaggunExtractedInvoiceBasic(**taggun_basic_fields)
 
-        if corrected:
-            if amount_untaxed != corrected["amount_untaxed"]:
-                logger.debug(
-                    f"Corrigiendo amount_untaxed: {amount_untaxed} -> {corrected['amount_untaxed']}"
-                )
-                amount_untaxed = corrected["amount_untaxed"]
-            if amount_total != corrected["amount_total"]:
-                logger.debug(
-                    f"Corrigiendo amount_total: {amount_total} -> {corrected['amount_total']}"
-                )
-                amount_total = corrected["amount_total"]
-            if amount_tax != corrected["amount_tax"]:
-                logger.debug(
-                    f"Corrigiendo amount_tax: {amount_tax} -> {corrected['amount_tax']}"
-                )
-                amount_tax = corrected["amount_tax"]
-
-        address = self.extract_address()
-
-        lines = self.parse_line_items(
-            amount_total=amount_total,
-            amount_untaxed=amount_untaxed,
-            amount_discount=amount_discount,
-        )
-
-        return TaggunExtractedInvoice(
-            partner_name=partner_name,
-            partner_vat=partner_vat,
-            date=date_invoice,
-            invoice_number=invoice_number,
-            amount_total=amount_total,
-            amount_tax=amount_tax,
-            amount_untaxed=amount_untaxed,
-            amount_discount=amount_discount or 0,
-            address=address,
-            line_items=lines,
-            tax_canditates=tax_canditates,
-        )
-
+    # -----------------------
+    # Tax candidates
+    # -----------------------
     def calculate_tax_candidates(
         self,
-        amount_untaxed: float,
-        amount_total: float,
-        amount_tax: float,
-        amount_discount: float,
-    ) -> Set[float]:
+        amount_untaxed: Decimal,
+        amount_total: Decimal,
+        amount_tax: Decimal,
+        amount_discount: Optional[Decimal] = Decimal("0"),
+    ) -> Set[Decimal]:
+        """
+        Calcula candidatos de tasa de impuesto.
+        ✅ Blindado: convierte argumentos a Decimal al inicio.
+        """
+        # 🔹 Blindaje: siempre trabajar con Decimal, aunque entren float
+        amount_untaxed = D(amount_untaxed)
+        amount_total = D(amount_total)
+        amount_tax = D(amount_tax)
+        amount_discount = D(amount_discount)
 
         if not self._majority_gate(
             amount_tax=amount_tax,
@@ -259,22 +282,24 @@ class TaggunExtractor:
             self._raise_error()
 
         u, t, tx, d = (
-            amount_untaxed,
-            amount_total,
-            amount_tax,
-            amount_discount,
+            amount_untaxed or Decimal("0"),
+            amount_total or Decimal("0"),
+            amount_tax or Decimal("0"),
+            amount_discount or Decimal("0"),
         )
 
-        def is_valid_rate(untaxed: float, tax: float) -> bool:
+        rate_tol = self._rate_tolerance
+
+        def is_valid_rate(untaxed: Decimal, tax: Decimal) -> bool:
             if untaxed <= 0:
                 return False
-            rate = round((tax / untaxed) * 100, 2)
-            return any(abs(rate - r) <= 0.3 for r in settings.TAX_STANDARD_RATES)
+            rate = quant2((tax / untaxed) * Decimal("100"))
+            return any(abs(rate - r) <= rate_tol for r in self._standard_rates)
 
         # Caso 1: Descuento presente y todos los valores
         if d > 0 and u > 0 and tx > 0 and t > 0:
             expected_total = u - d + tx
-            if abs(expected_total - t) > 0.3:
+            if abs(expected_total - t) > rate_tol:
                 u2 = t - tx + d
                 if is_valid_rate(u2, tx):
                     u = u2
@@ -283,9 +308,9 @@ class TaggunExtractor:
             self._compute_percentage(u, tx)
 
             self.corrected_values = {
-                "amount_untaxed": u,
-                "amount_total": t,
-                "amount_tax": tx,
+                "amount_untaxed": quant2(u),
+                "amount_total": quant2(t),
+                "amount_tax": quant2(tx),
             }
             return self.candidates
 
@@ -298,9 +323,9 @@ class TaggunExtractor:
                 self._compute_percentage(u, tx)
 
                 self.corrected_values = {
-                    "amount_untaxed": u,
-                    "amount_total": t,
-                    "amount_tax": tx,
+                    "amount_untaxed": quant2(u),
+                    "amount_total": quant2(t),
+                    "amount_tax": quant2(tx),
                 }
                 return self.candidates
 
@@ -311,9 +336,9 @@ class TaggunExtractor:
                 self._compute_percentage(u, tx)
 
                 self.corrected_values = {
-                    "amount_untaxed": u,
-                    "amount_total": t,
-                    "amount_tax": tx,
+                    "amount_untaxed": quant2(u),
+                    "amount_total": quant2(t),
+                    "amount_tax": quant2(tx),
                 }
                 return self.candidates
 
@@ -324,30 +349,34 @@ class TaggunExtractor:
                 self._compute_percentage(u, tx)
 
                 self.corrected_values = {
-                    "amount_untaxed": u,
-                    "amount_total": t,
-                    "amount_tax": tx,
+                    "amount_untaxed": quant2(u),
+                    "amount_total": quant2(t),
+                    "amount_tax": quant2(tx),
                 }
                 return self.candidates
 
         # Caso 3: Sin descuento, todos los valores presentes
         if t > 0 and u > 0 and tx > 0:
-            if abs(u + tx - t) > 0.3:
+            if abs((u + tx) - t) > rate_tol:
                 expected_untaxed = t - tx
                 expected_total = u + tx
 
                 rate_if_untaxed_fixed = (
-                    (tx / expected_untaxed) * 100 if expected_untaxed > 0 else -1
+                    quant2((tx / expected_untaxed) * Decimal("100"))
+                    if expected_untaxed > 0
+                    else Decimal("-1")
                 )
-                rate_if_total_fixed = (tx / u) * 100 if u > 0 else -1
+                rate_if_total_fixed = (
+                    quant2((tx / u) * Decimal("100")) if u > 0 else Decimal("-1")
+                )
 
                 match_untaxed = any(
-                    abs(rate_if_untaxed_fixed - r) <= 0.3
-                    for r in settings.TAX_STANDARD_RATES
+                    abs(rate_if_untaxed_fixed - r) <= rate_tol
+                    for r in self._standard_rates
                 )
                 match_total = any(
-                    abs(rate_if_total_fixed - r) <= 0.3
-                    for r in settings.TAX_STANDARD_RATES
+                    abs(rate_if_total_fixed - r) <= rate_tol
+                    for r in self._standard_rates
                 )
 
                 if match_untaxed and not match_total:
@@ -366,11 +395,10 @@ class TaggunExtractor:
             self._compute_percentage(u, tx)
 
             self.corrected_values = {
-                "amount_untaxed": u,
-                "amount_total": t,
-                "amount_tax": tx,
+                "amount_untaxed": quant2(u),
+                "amount_total": quant2(t),
+                "amount_tax": quant2(tx),
             }
-
             return self.candidates
 
         # Caso 4: Falta tax
@@ -398,9 +426,9 @@ class TaggunExtractor:
             self._raise_error()
 
         self.corrected_values = {
-            "amount_untaxed": u,
-            "amount_total": t,
-            "amount_tax": tx,
+            "amount_untaxed": quant2(u),
+            "amount_total": quant2(t),
+            "amount_tax": quant2(tx),
         }
 
         return self.candidates

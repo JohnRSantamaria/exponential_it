@@ -7,7 +7,7 @@ from app.core.logging import logger
 from app.core.patterns.adapter.odoo_adapter import OdooAdapter
 
 from app.services.openai.client import OpenAIService
-from app.services.odoo.exceptions import OdooIncompleteDataError, OdooTaxIdNotFound
+from app.services.odoo.exceptions import OdooTaxIdNotFound
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.openai.schemas.classification_tax_request import (
     ClasificacionRequest,
@@ -201,3 +201,17 @@ async def get_or_attach_document(
         file=file,
         file_content=file_content,
     )
+
+
+async def get_final_total_odoo(
+    invoice_id: str,
+    odoo_provider: OdooAdapter,
+):
+    return await odoo_provider.get_the_total_of_the_final_invoice(invoice_id=invoice_id)
+
+
+async def delete_invoice(
+    invoice_id: str,
+    odoo_provider: OdooAdapter,
+):
+    return await odoo_provider.delete_final_invoice(invoice_id=invoice_id)

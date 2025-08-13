@@ -6,21 +6,15 @@ from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 
 
 def find_tax_ids(
-    payload_text: str,
-    all_tax_ids: list[str],
-    taggun_data: TaggunExtractedInvoice,
+    extractor: TaxIdExtractor,
 ) -> tuple[str, str, TaxIdExtractor]:
-    extractor = TaxIdExtractor(
-        text=payload_text,
-        all_tax_ids=all_tax_ids,
-    )
 
     logger.debug("Buscando un Tax ID válido para la compañía.")
     company_vat = extractor.get_company_tax_id_or_fail()
     logger.debug("Buscando un Tax ID válido para el proveedor.")
-    partner_vat = extractor.get_partner_tax_id_or_fail(company_vat, taggun_data)
+    partner_vat = extractor.get_partner_tax_id_or_fail(company_vat)
 
-    return company_vat, partner_vat, extractor
+    return company_vat, partner_vat
 
 
 def get_account_match(identify_accounts, company_vat: str, extractor: TaxIdExtractor):

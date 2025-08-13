@@ -22,7 +22,8 @@ class LineItemSchema(BaseModel):
     total_price: float
 
 
-class TaggunExtractedInvoice(BaseModel):
+# 📦 Modelo parcial
+class TaggunExtractedInvoiceBasic(BaseModel):
     partner_name: str
     partner_vat: str
     date: Optional[date]
@@ -31,6 +32,10 @@ class TaggunExtractedInvoice(BaseModel):
     amount_tax: float
     amount_untaxed: float
     amount_discount: float
+
+
+# 📦 Modelo completo heredando del básico
+class TaggunExtractedInvoice(TaggunExtractedInvoiceBasic):
     address: AddressSchema
     line_items: list[LineItemSchema]
     tax_canditates: Optional[Set[float]]

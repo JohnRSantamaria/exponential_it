@@ -3,11 +3,17 @@ from app.core.settings import settings
 from app.core.client_provider import ProviderConfig
 from app.core.patterns.adapter.base import get_provider
 from app.core.schemas.enums import ServicesEnum
-from app.services.odoo.exceptions import OdooTaxIdNotFound
+from app.services.odoo.exceptions import (
+    OdooCreationError,
+    OdooDeleteError,
+    OdooTaxIdNotFound,
+)
 from app.services.odoo.secrets import SecretsServiceOdoo
 from app.services.openai.client import OpenAIService
 from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.odoo.v16.client import (
+    delete_invoice,
+    get_final_total_odoo,
     get_or_attach_document,
     get_or_create_address,
     get_or_create_contact_id,
@@ -17,15 +23,16 @@ from app.services.odoo.v16.client import (
 )
 from app.core.logging import logger
 
+from exponential_core.exceptions import CustomAppException
+
 
 async def odoo_process(
     file: UploadFile,
     file_content: bytes,
     taggun_data: TaggunExtractedInvoice,
     company_vat: str,
+    openai_service: OpenAIService,
 ):
-    config = ProviderConfig(server_url=settings.URL_OPENAPI)
-    openai_service = OpenAIService(config=config)
 
     odoo_provider = get_provider(
         service=ServicesEnum.ODOO,
@@ -84,6 +91,32 @@ async def odoo_process(
         product_ids=product_ids,
         partner_id=partner_id,
     )
+
+    response = await get_final_total_odoo(
+        odoo_provider=odoo_provider, invoice_id=invoice_id
+    )
+
+    amount_total = response.get("amount_total")
+
+    if amount_total and amount_total != taggun_data.amount_total:
+        logger.debug(f"Total en la factura: {taggun_data.amount_total}")
+        logger.debug(f"Total final: {amount_total}")
+        logger.warning(
+            f"Los totales son diferentes para la factura {file.filename}, se eliminara."
+        )
+
+        try:
+            await delete_invoice(
+                invoice_id=invoice_id,
+                odoo_provider=odoo_provider,
+            )
+            logger.info("Factura eliminada correctamente")
+
+            raise OdooCreationError(
+                f"Los totales son diferentes para la factura {file.filename}, se elimino."
+            )
+        except Exception as e:
+            raise OdooDeleteError(message=str(e))
 
     await get_or_attach_document(
         invoice_id=invoice_id,

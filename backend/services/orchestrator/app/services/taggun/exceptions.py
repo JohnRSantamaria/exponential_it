@@ -8,14 +8,14 @@ class FileProcessingError(CustomAppException):
 
 class AccountNotFoundError(CustomAppException):
     def __init__(
-        self, message="No se encontraron cuentas asociadas al correo", data=None
+        self, message="No se encontraron cuentas asociadas a esta cuenta", data=None
     ):
         super().__init__(message, data, status_code=404)
 
 
 class AdminServiceError(CustomAppException):
     def __init__(self, message="Error al comunicarse con el servicio Admin", data=None):
-        super().__init__(message, data, status_code=503)
+        super().__init__(message, data, status_code=401)
 
 
 class FieldNotFoundError(CustomAppException):

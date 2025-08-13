@@ -10,6 +10,7 @@ from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 
 
 async def extract_ocr_payload(file: UploadFile, file_content: bytes) -> dict:
+    """Retorna todos los datos extraidos directamente desde Taggun"""
     taggun_service = get_taggun_service()
     logger.info(f"taggun_service : [{taggun_service}]")
 
@@ -28,4 +29,4 @@ async def extract_ocr_payload(file: UploadFile, file_content: bytes) -> dict:
 
 
 def extract_taggun_data(payload: dict) -> TaggunExtractedInvoice:
-    return TaggunExtractor(payload=payload).extract_data()
+    TaggunExtractor(payload=payload).extrac_base_values()

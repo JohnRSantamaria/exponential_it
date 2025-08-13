@@ -67,7 +67,7 @@ class AdminService:
 
     async def identify_accounts(self, email: str) -> IdentifyAccountsResponse:
         url = f"{self.path}/auth/identify/"
-        logger.debug(f"Autenticando email en: {url}")
+        logger.info(f"Autenticando {email} en: {url}")
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -83,6 +83,7 @@ class AdminService:
         except httpx.RequestError as exc:
             raise CustomAppException(f"Error de conexión con Admin: {exc}")
         except Exception as exc:
+            logger.error(f"{exc.response} Error en AdminService, {exc}")
             raise CustomAppException(
-                f"Error inesperado al obtener credenciales con Admin: {exc}"
+                f"Error inesperado al intentar autenticar el email: {email}"
             )

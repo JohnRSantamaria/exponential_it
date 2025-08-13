@@ -2,8 +2,10 @@ from exponential_core.exceptions import CustomAppException
 
 
 class OdooServiceError(CustomAppException):
-    def __init__(self, message="Error en la respuesta de Odoo", data=None):
-        super().__init__(message=message, data=data, status_code=422)
+    def __init__(
+        self, message="Error en la respuesta de Odoo", data=None, status_code=422
+    ):
+        super().__init__(message=message, data=data, status_code=status_code)
 
 
 class OdooTimeoutError(OdooServiceError):
@@ -41,3 +43,19 @@ class OdooIncompleteDataError(OdooServiceError):
         data=None,
     ):
         super().__init__(message=message, data=data)
+
+
+class OdooDeleteError(OdooServiceError):
+    def __init__(
+        self,
+        message="[Error de odoo] No se pudo eliminar la factura",
+        data=None,
+    ):
+        super().__init__(message=message, data=data)
+
+
+class OdooCreationError(OdooServiceError):
+    def __init__(
+        self, message="Error inesperado al crear la factarua en Odoo", data=None
+    ):
+        super().__init__(message=message, status_code=406)

@@ -1,4 +1,6 @@
+from decimal import Decimal
 import io
+from typing import Any, Optional, Set
 from PIL import Image
 from exponential_core.exceptions import CustomAppException
 from app.services.taggun.exceptions import ImageTooSmall, UnsupportedImageFormatError
@@ -28,3 +30,27 @@ def validate_image_dimensions(
     # Validar dimensiones
     if img.width < min_width or img.height < min_height:
         raise ImageTooSmall(img.width, img.height, min_width, min_height)
+
+
+def to_tax_candidates(value: Any) -> Optional[Set[float]]:
+    """
+    Convierte:
+      - None -> None
+      - número (int/float/Decimal) -> {float(valor)}
+      - iterable (set/list/tuple) de números -> {float(...), ...}
+    """
+    if value is None:
+        return None
+
+    # Valor único
+    if isinstance(value, (int, float, Decimal)):
+        return {float(value)}
+
+    # Colección
+    if isinstance(value, (set, list, tuple)):
+        if not value:  # colección vacía -> None o set() si prefieres
+            return None
+        return {float(v) for v in value}
+
+    # Si llega otro tipo inesperado, mejor None (o lanza error si prefieres)
+    return None

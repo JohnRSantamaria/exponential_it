@@ -118,3 +118,25 @@ class OdooAdapter(AccountingProvider):
                 files=files,
             )
         return reponse.json()
+
+    @error_interceptor
+    async def get_the_total_of_the_final_invoice(self, invoice_id):
+        url = f"{self.path}/invoice-total?invoice_id={invoice_id}"
+        logger.info(url)
+
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url=url, headers=headers)
+
+        return response.json()
+
+    @error_interceptor
+    async def delete_final_invoice(self, invoice_id):
+        url = f"{self.path}/invoice?invoice_id={invoice_id}"
+
+        headers = {"x-client-vat": self.company_vat}
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.delete(url=url, headers=headers)
+        return response.json()

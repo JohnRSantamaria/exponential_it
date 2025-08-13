@@ -4,10 +4,11 @@ import base64
 
 from datetime import datetime
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile, status
 
 from app.core.logging import logger
 from app.services.odoo.client import AsyncOdooClient
+from app.services.odoo.exceptions import OdooCallException
 from app.services.odoo.schemas.invoice import InvoiceCreateSchemaV18
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
 
@@ -339,3 +340,80 @@ async def get_companies(
         fields=["id", "name"],  # ✅ Retornar solo campos necesarios
     )
     return companies
+
+
+async def get_invoice_total(company: AsyncOdooClient, invoice_id: int):
+
+    recs = await company.read(
+        "account.move",
+        [["id", "=", invoice_id]],
+        fields=[
+            "id",
+            "amount_total",
+            "currency_id",
+            "name",
+            "ref",
+            "move_type",
+            "state",
+        ],
+    )
+    if not recs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Factura {invoice_id} no encontrada",
+        )
+
+    rec = recs[0]
+    # currency_id es un m2o: [id, 'Name'] -> opcionalmente puedes devolver el nombre
+    currency = (
+        rec.get("currency_id", [None, None])[1] if rec.get("currency_id") else None
+    )
+
+    return {
+        "invoice_id": rec["id"],
+        "amount_total": rec["amount_total"],
+        "currency": currency,
+        "name": rec.get("name"),
+        "ref": rec.get("ref"),
+        "move_type": rec.get("move_type"),
+        "state": rec.get("state"),
+    }
+
+
+async def delete_invoice_by_invoice_id(
+    invoice_id: int,
+    company: AsyncOdooClient,
+    force: bool = True,
+):
+    # Helper para verificar existencia rápida
+    recs = await company.read(
+        "account.move",
+        [["id", "=", invoice_id]],
+        fields=["id", "state", "move_type"],
+    )
+    if not recs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Factura {invoice_id} no encontrada",
+        )
+
+    try:
+
+        await company.delete("account.move", [invoice_id])
+        return {"deleted": True, "invoice_id": invoice_id, "forced": False}
+    except OdooCallException as e:
+        if not force:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"No se pudo eliminar la factura {invoice_id}: {e}",
+            ) from e
+
+        try:
+            await company.call("account.move", "button_cancel", [[invoice_id]])
+            await company.delete("account.move", [invoice_id])
+            return {"deleted": True, "invoice_id": invoice_id, "forced": True}
+        except Exception as e2:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"No se pudo eliminar la factura {invoice_id} incluso tras cancelar: {e2}",
+            ) from e2

@@ -3,7 +3,6 @@ import re
 from typing import List, Tuple
 from stdnum.eu import vat as vat_validator
 from app.core.logging import logger
-from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.core.exceptions import (
     MultipleCompanyTaxIdMatchesError,
     MultiplePartnerTaxIdsError,
@@ -266,3 +265,45 @@ class TaxIdExtractor:
             return max(matches, key=lambda x: (len(x), x))
 
         raise MultiplePartnerTaxIdsError(matches)
+
+    def resolve_company_and_partner_vat(
+        self,
+        supposed_company_vat: str | None,
+        supposed_partner_vat: str | None,
+    ) -> tuple[str | None, str | None]:
+        """
+        Valida company_vat y partner_vat contra self.all_tax_ids.
+
+        Reglas:
+        - Ninguno coincide -> TaxIdNotFoundError
+        - EXACTAMENTE uno coincide -> retorna los valores, haciendo swap si el que coincide fue el partner
+        - Ambos coinciden -> MultipleCompanyTaxIdMatchesError
+        """
+
+        def match_in_all(tax_id: str | None) -> str | None:
+            if not tax_id:
+                return None
+            for own_id in self.all_tax_ids:
+                if self._are_similar(tax_id, own_id, self.similarity_threshold):
+                    return own_id
+            return None
+
+        comp_hit = match_in_all(supposed_company_vat)
+        part_hit = match_in_all(supposed_partner_vat)
+
+        # Ninguno coincide
+        if comp_hit is None and part_hit is None:
+            raise TaxIdNotFoundError()
+
+        # Solo uno coincide
+        if (comp_hit is not None) ^ (part_hit is not None):
+            if comp_hit is not None:
+                return supposed_company_vat, supposed_partner_vat
+            else:
+                # el partner es quien coincide -> promover a company
+                return supposed_partner_vat, supposed_company_vat
+
+        # Ambos coinciden
+        raise MultipleCompanyTaxIdMatchesError(
+            matches=[supposed_company_vat or "", supposed_partner_vat or ""]
+        )
