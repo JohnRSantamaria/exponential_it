@@ -5,12 +5,13 @@ from openai import AsyncOpenAI
 from pydantic import ValidationError
 from decimal import Decimal, ROUND_HALF_UP
 
-from fastapi.encoders import jsonable_encoder
 from fastapi import UploadFile, HTTPException, status
 
 from app.core.settings import settings
 from app.core.logging import logger
 from exponential_core.openai import InvoiceTotalsSchema, MoneySchema
+from exponential_core.exceptions import CustomAppException
+
 
 from app.services.openai.utils.formatter import (
     DEC_Q,
@@ -361,13 +362,21 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotalsSchema:
     math_ok = almost_equal(ttl, computed_total)
 
     # --- Tasa de IVA: la retención NO reduce la base; el descuento SÍ ---
-    base_for_vat = max(Decimal("0"), (sub - disc_effective))
-    computed_rate = (
-        ((tax / base_for_vat) * Decimal("100")).quantize(Decimal("0.01"))
-        if base_for_vat > 0
-        else Decimal("0")
-    )
-    rate_ok = almost_equal(parsed.tax_rate_percent, computed_rate, Decimal("0.1"))
+    # Usar la base "firmada" y luego magnitudes absolutas para el porcentaje.
+    base_for_vat_signed = sub - disc_effective  # puede ser < 0 en notas de crédito
+    base_for_vat_abs = base_for_vat_signed.copy_abs()  # magnitud para el % de IVA
+    tax_abs = tax.copy_abs()
+
+    if base_for_vat_abs == 0:
+        computed_rate = Decimal("0")
+    else:
+        computed_rate = ((tax_abs / base_for_vat_abs) * Decimal("100")).quantize(
+            Decimal("0.01")
+        )
+
+    # Si el modelo alguna vez devolviera un porcentaje negativo, lo normalizamos.
+    reported_rate = Decimal(str(parsed.tax_rate_percent)).copy_abs()
+    rate_ok = almost_equal(reported_rate, computed_rate, Decimal("0.1"))
 
     # ---- ENRIQUECIMIENTO DE EVIDENCIAS Y RETENCIÓN ----
     # 4.1. Evidencias con números para subtotal, tax, total
@@ -491,11 +500,13 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotalsSchema:
         msg = "Retención detectada"
         if "percent" in withholding_text:
             msg += f" {withholding_text['percent']}%"
-            # (opcional) comprobación simple de coherencia con base_for_vat:
-            if base_for_vat > 0:
+            # (opcional) comprobación simple de coherencia con la base de IVA:
+            if base_for_vat_abs > 0:
                 expected_wh = (
-                    base_for_vat * (withholding_text["percent"] / Decimal("100"))
+                    base_for_vat_abs
+                    * (Decimal(str(withholding_text["percent"])) / Decimal("100"))
                 ).quantize(DEC_Q)
+                # Compara por magnitudes para que funcione con notas de crédito (valores negativos)
                 if wh_effective != 0 and not almost_equal(
                     expected_wh.copy_abs(), wh_effective.copy_abs(), DEC_Q
                 ):
@@ -508,17 +519,7 @@ async def extract_data_from_invoice(file: UploadFile) -> InvoiceTotalsSchema:
         parsed.notes = (parsed.notes + " | " + msg) if parsed.notes else msg
 
     if problems:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=jsonable_encoder(
-                {
-                    "message": "La extracción no pasa las validaciones.",
-                    "problems": problems,
-                    "warnings": warnings or None,
-                    "extracted": parsed.model_dump(mode="json"),
-                }
-            ),
-        )
+        raise CustomAppException(f"{problems}")
 
     if warnings:
         note = f"Warnings: {json.dumps(warnings, ensure_ascii=False)}"

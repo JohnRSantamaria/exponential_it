@@ -316,6 +316,7 @@ class TaggunExtractor:
 
         # Caso 2: Descuento presente, falta uno de los tres
         if d > 0:
+            # Falta tax
             if t > 0 and u > 0 and tx <= 0:
                 tx = t - (u - d)
                 if not is_valid_rate(u, tx):
@@ -328,7 +329,7 @@ class TaggunExtractor:
                     "amount_tax": quant2(tx),
                 }
                 return self.candidates
-
+            # Falta untaxed
             elif t > 0 and tx > 0 and u <= 0:
                 u = t - tx + d
                 if not is_valid_rate(u, tx):
@@ -341,7 +342,7 @@ class TaggunExtractor:
                     "amount_tax": quant2(tx),
                 }
                 return self.candidates
-
+            # Falta total
             elif u > 0 and tx > 0 and t <= 0:
                 t = u - d + tx
                 if not is_valid_rate(u, tx):
