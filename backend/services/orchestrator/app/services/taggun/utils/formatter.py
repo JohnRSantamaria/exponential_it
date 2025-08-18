@@ -4,7 +4,7 @@ from typing import Any, Optional, Set, Iterable
 from PIL import Image
 from exponential_core.exceptions import CustomAppException
 from app.services.taggun.exceptions import ImageTooSmall, UnsupportedImageFormatError
-
+from app.core.settings import settings
 
 # -------------------- Imagen --------------------
 
@@ -22,6 +22,13 @@ def validate_image_dimensions(
 
     if ext not in supported_extensions:
         raise UnsupportedImageFormatError(ext, sorted(supported_extensions))
+
+    # si es supported_extensions valida que el archivo empiece por factura_
+    if not filename.startswith("factura_"):
+        raise CustomAppException(
+            f"El archivo debe empezar por 'factura_' y tener una extensión válida: {', '.join(supported_extensions)}",
+            status_code=400,
+        )
 
     # Intentar abrir la imagen de forma segura
     try:

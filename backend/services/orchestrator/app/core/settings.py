@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = ""
     CRYPTO_KEY: str = ""
     TAGGUN_APIKEY: str = ""
+    IMG_PREFIX: str = "factura_"
 
     TAX_STANDARD_RATES: List = (0.0, 4.0, 10.0, 21.0)
 

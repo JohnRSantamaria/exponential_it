@@ -12,6 +12,7 @@ async def inject_secrets():
         settings.JWT_SECRET_KEY = secrets.get("JWT_SECRET_KEY", "")
         settings.CRYPTO_KEY = secrets.get("CRYPTO_KEY", "")
         settings.TAGGUN_APIKEY = secrets.get("TAGGUN_API_KEY", "")
+        settings.IMG_PREFIX = secrets.get("IMG_PREFIX", "factura_")
 
     except Exception as e:
         raise AWSConnectionError(
