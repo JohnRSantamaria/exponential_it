@@ -52,9 +52,6 @@ async def get_or_create_supplier(
     return await company.create("res.partner", payload)
 
 
-import difflib
-
-
 async def get_or_create_address(
     company: AsyncOdooClient,
     address_data: AddressCreateSchema,
