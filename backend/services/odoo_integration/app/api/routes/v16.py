@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 
 from app.api.dependencies import get_company
 from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.operations import (
     attach_file_to_invoice,
     delete_invoice_by_invoice_id,
+    gell_all_expense_accounts,
     get_companies,
     get_invoice_total,
     get_model_fields,
@@ -154,4 +155,11 @@ async def delete_invoice(
     return await delete_invoice_by_invoice_id(
         company=company,
         invoice_id=invoice_id,
+    )
+
+
+@router.get("/expense-accounts")
+async def get_expense_accounts(company: AsyncOdooClient = Depends(get_company)):
+    return await gell_all_expense_accounts(
+        company=company,
     )

@@ -9,7 +9,7 @@ from fastapi import HTTPException, UploadFile, status
 from app.core.logging import logger
 from app.services.odoo.client import AsyncOdooClient
 from app.services.odoo.exceptions import OdooCallException
-from app.services.odoo.schemas.invoice import InvoiceCreateSchemaV18
+from app.services.odoo.schemas.invoice import InvoiceCreateSchema
 from app.services.odoo.utils.cleanner import clean_enum_payload, parse_to_date
 
 from exponential_core.exceptions import TaxIdNotFoundError
@@ -193,7 +193,7 @@ async def get_or_create_product(
 
 
 async def get_or_create_invoice(
-    company: AsyncOdooClient, invoice_data: InvoiceCreateSchemaV18
+    company: AsyncOdooClient, invoice_data: InvoiceCreateSchema
 ) -> int:
     """
     Crea o devuelve una factura de proveedor (move_type='in_invoice') si ya existe.
@@ -213,6 +213,7 @@ async def get_or_create_invoice(
 
     logger.debug(f"Creando factura")
     payload = invoice_data.as_odoo_payload()
+    payload["company_id"] = int(company.company_id)
 
     if "invoice_date" in payload and isinstance(payload["invoice_date"], datetime):
         payload["invoice_date"] = parse_to_date(payload.get("invoice_date"))
@@ -220,7 +221,6 @@ async def get_or_create_invoice(
         payload["date"] = parse_to_date(payload.get("date"))
 
     invoice_id = await company.create("account.move", payload)
-
     logger.info(f"Factura creada: {invoice_id}")
 
     # 4️⃣ Publicar mensaje en el chatter
@@ -414,3 +414,15 @@ async def delete_invoice_by_invoice_id(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"No se pudo eliminar la factura {invoice_id} incluso tras cancelar: {e2}",
             ) from e2
+
+
+async def gell_all_expense_accounts(company: AsyncOdooClient):
+    return await company.read(
+        "account.account",
+        [
+            ["company_id", "=", int(company.company_id)],
+            ["internal_group", "=", "expense"],
+            ["deprecated", "=", False],
+        ],
+        fields=["id", "code", "name"],
+    )
