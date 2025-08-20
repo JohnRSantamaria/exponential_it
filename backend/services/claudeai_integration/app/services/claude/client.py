@@ -1,18 +1,16 @@
 from __future__ import annotations
 
 import base64
-import json
-from decimal import Decimal
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any
 
 from fastapi import UploadFile
-from pydantic import BaseModel, Field, ValidationError, field_validator
+from pydantic import ValidationError
 
 from app.core.settings import settings
 from app.core.logging import logger
-from exponential_core.exceptions import CustomAppException
 from anthropic import AsyncAnthropic
 
+from exponential_core.cluadeai import InvoiceResponseSchema
 from app.services.claude.exceptions import (
     APIKeyNotConfiguredException,
     AnthropicAPIException,
@@ -21,136 +19,11 @@ from app.services.claude.exceptions import (
     JSONParsingException,
     UnsupportedFileFormatException,
 )
-
-# ============================================================
-#                      Pydantic v2 Models
-# ============================================================
-
-
-class Company(BaseModel):
-    name: str
-    address: str
-    tax_id: str
-    phone: Optional[str] = None
-    fax: Optional[str] = None
-    email: Optional[str] = None
-
-
-class Customer(BaseModel):
-    name: str
-    tax_number: str
-    address: str
-
-
-class GeneralInfo(BaseModel):
-    company: Company
-    customer: Customer
-    invoice_date: str  # e.g. "13/06/2025"
-    invoice_number: str
-    project: Optional[str] = None
-    manager: Optional[str] = None
-    delivery_note: Optional[str] = None
-    order_number: Optional[str] = None
-    notes: Optional[str] = None
-
-
-def _to_decimal(value):
-    """
-    Coerce int/float/str -> Decimal safely.
-    - Floats are wrapped via str() to avoid binary artifacts.
-    - Strings like '7,50' are normalized to '7.50'.
-    """
-    if value is None:
-        return None
-    if isinstance(value, Decimal):
-        return value
-    if isinstance(value, (int, float)):
-        return Decimal(str(value))
-    if isinstance(value, str):
-        v = value.strip().replace(",", ".")
-        return Decimal(v)
-    return value
-
-
-class Item(BaseModel):
-    # Optional metadata
-    date: Optional[str] = None
-    delivery_code: Optional[str] = None
-    product_code: Optional[str] = None
-
-    description: str
-    # CHANGED: quantity can be fractional (e.g., cubic meters), so use Decimal
-    quantity: Decimal
-    # CHANGED: unit can be missing => Optional[str]
-    unit: Optional[str] = None
-
-    unit_price: Decimal
-    discount_percent: Optional[Decimal] = None
-    discount_amount: Optional[Decimal] = None
-    net_price: Decimal
-    line_total: Decimal
-
-    measurements: Optional[str] = None
-    color: Optional[str] = None
-    weight_kg: Optional[Decimal] = None
-    notes: Optional[str] = None
-
-    # Normalize numeric fields to Decimal
-    @field_validator(
-        "quantity",
-        "unit_price",
-        "discount_percent",
-        "discount_amount",
-        "net_price",
-        "line_total",
-        "weight_kg",
-        mode="before",
-    )
-    @classmethod
-    def _normalize_decimals(cls, v):
-        return _to_decimal(v)
-
-
-class Totals(BaseModel):
-    subtotal: Optional[Decimal] = None
-    taxable_base: Decimal
-    vat_percent: Decimal
-    vat_amount: Decimal
-    other_taxes: Optional[Decimal] = None
-    grand_total: Decimal
-
-    @field_validator(
-        "subtotal",
-        "taxable_base",
-        "vat_percent",
-        "vat_amount",
-        "other_taxes",
-        "grand_total",
-        mode="before",
-    )
-    @classmethod
-    def _normalize_decimals(cls, v):
-        return _to_decimal(v)
-
-
-class PaymentMethod(BaseModel):
-    method: str
-    due_date: str
-    iban: Optional[str] = None
-    terms: Optional[str] = None
-
-
-class InvoiceResponse(BaseModel):
-    # Estructura que esperamos de Claude (en inglés)
-    general_info: GeneralInfo
-    items: List[Item]
-    totals: Totals
-    payment: PaymentMethod
-
-
-# ============================================================
-#                        Prompt (English)
-# ============================================================
+from app.services.claude.utils.cleaner import parse_invoice_response_from_json
+from app.services.claude.utils.format_response import (
+    get_media_type,
+    is_supported_file_format,
+)
 
 
 def create_extraction_prompt() -> str:
@@ -263,45 +136,9 @@ FINAL CHECK: Before sending your answer, count how many objects exist in the "it
 Respond only with the COMPLETE valid JSON:"""
 
 
-# ============================================================
-#                 Helper: clean & validate JSON
-# ============================================================
-
-
-def _clean_possible_markdown(json_text: str) -> str:
-    """
-    Removes ```json ... ``` wrappers if present and trims whitespace.
-    """
-    clean = json_text.strip()
-    if clean.startswith("```json"):
-        clean = clean[7:]
-    if clean.startswith("```"):  # in case of ``` without language
-        clean = clean[3:]
-    if clean.endswith("```"):
-        clean = clean[:-3]
-    return clean.strip()
-
-
-def parse_invoice_response_from_json(json_text: str) -> InvoiceResponse:
-    """
-    Validates the JSON returned by Claude and converts it to English models.
-    """
-    clean = _clean_possible_markdown(json_text)
-    try:
-        return InvoiceResponse.model_validate_json(clean)
-    except ValidationError as ve:
-        raise ve
-
-
-# ============================================================
-#                    Core processing function
-# ============================================================
-
-
 async def invoice_formater(file: UploadFile) -> Dict[str, Any]:
     """
     Procesa un archivo único (PDF o imagen) de factura y devuelve datos estructurados en JSON
-    (claves en inglés).
     """
     api_key = settings.ANTHROPIC_API_KEY
 
@@ -389,22 +226,13 @@ async def invoice_formater(file: UploadFile) -> Dict[str, Any]:
 
         # Parsear y validar con Pydantic
         try:
-            validated: InvoiceResponse = parse_invoice_response_from_json(response_text)
+            validated: InvoiceResponseSchema = parse_invoice_response_from_json(
+                response_text
+            )
             items_count = len(validated.items)
             logger.info(f"✅ {file.filename}: Se extrajeron {items_count} ítems")
 
-            # Si necesitaras convertir Decimal -> float para respuesta JSON final:
-            # invoice_dict = json.loads(json.dumps(validated.model_dump(), default=float))
-
-            invoice_dict = validated.model_dump()  # conserva Decimal
-
-            return {
-                "success": True,
-                "filename": file.filename,
-                "file_type": media_type,
-                "items_extracted": items_count,
-                "invoice_data": invoice_dict,  # claves en inglés
-            }
+            return validated
 
         except ValidationError as e:
             logger.error(f"❌ Error al validar JSON de {file.filename}: {str(e)}")
@@ -424,35 +252,3 @@ async def invoice_formater(file: UploadFile) -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"❌ Error durante el procesamiento de {file.filename}: {str(e)}")
         raise FileProcessingException(file.filename, "unexpected_error", str(e))
-
-
-# ============================================================
-#                 File utils (format & media type)
-# ============================================================
-
-
-def is_supported_file_format(filename: str) -> bool:
-    """
-    Verifica si el formato de archivo es soportado
-    """
-    supported_extensions = [".pdf", ".jpg", ".jpeg", ".png", ".webp"]
-    filename_lower = filename.lower()
-    return any(filename_lower.endswith(ext) for ext in supported_extensions)
-
-
-def get_media_type(filename: str) -> str:
-    """
-    Determina el media type basado en la extensión del archivo
-    """
-    filename_lower = filename.lower()
-
-    if filename_lower.endswith(".pdf"):
-        return "application/pdf"
-    elif filename_lower.endswith(".jpg") or filename_lower.endswith(".jpeg"):
-        return "image/jpeg"
-    elif filename_lower.endswith(".png"):
-        return "image/png"
-    elif filename_lower.endswith(".webp"):
-        return "image/webp"
-    else:
-        return "application/octet-stream"
