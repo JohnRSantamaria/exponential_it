@@ -4,6 +4,7 @@ from typing import Dict, Optional, Set, List, Any, Iterable
 
 from app.core.settings import settings
 from app.core.logging import logger
+from app.services.claudeai.client import ClaudeAIService
 from app.services.zoho.exceptions import TaxPercentageNotFound
 from app.services.taggun.schemas.taggun_models import (
     AddressSchema,
@@ -148,10 +149,10 @@ class TaggunExtractor:
         items = self._try_paths(["entities", "productLineItems"], default=[])
         return items if isinstance(items, list) else []
 
-    def parse_line_items(
+    async def parse_line_items(
         self,
         amount_untaxed: Decimal,
-    ) -> List[LineItemSchema]:
+    ) -> List[LineItemSchema] | bool:
         """
         Devuelve ítems consistentes con el monto total global.
         Si la suma no coincide con amount_total, crea un solo ítem
@@ -183,7 +184,10 @@ class TaggunExtractor:
 
             products_name.append(name.strip())
 
-            line_total = total_price if total_price > 0 else (unit_price * qty)
+            logger.debug(
+                f"{name.strip()} Q: {qty} x U: {unit_price} = {unit_price * qty} "
+            )
+            line_total = unit_price * qty
             sum_total += line_total
 
             parsed_items.append(
@@ -196,22 +200,11 @@ class TaggunExtractor:
             )
 
         # 🔍 Validar si la suma coincide con amount_total
-        if abs(sum_total - total_expected) > EPS or not parsed_items:
-            logger.warning("No coincide la suma de los items con el total")
-            # ❗ Forzamos un solo item que cuadre con amount_total
-            merged_name = (
-                ", ".join([n for n in products_name if n]) or "Conceptos varios"
-            )
-            return [
-                LineItemSchema(
-                    name=merged_name,
-                    quantity=1,
-                    unit_price=total_expected,
-                    total_price=total_expected,
-                )
-            ]
-
-        return parsed_items
+        return (
+            False
+            if abs(sum_total - total_expected) > EPS or not parsed_items
+            else parsed_items
+        )
 
     # -----------------------
     # Base values

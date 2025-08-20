@@ -8,6 +8,8 @@ from app.core.logging import logger
 from app.core.settings import settings
 from app.core.secrets import SecretsService
 from app.core.client_provider import ProviderConfig
+from app.services.claudeai.client import ClaudeAIService
+from app.services.claudeai.extract_line_items import line_items_extraction
 from app.services.openai.client import OpenAIService
 from app.services.zoho.processor import zoho_process
 from app.services.upload.process import save_file_dropbox
@@ -40,6 +42,9 @@ async def handle_invoice_scan(
 
     config = ProviderConfig(server_url=settings.URL_OPENAPI)
     openai_service = OpenAIService(config=config)
+
+    config = ProviderConfig(server_url=settings.URL_CLAUDEAPI)
+    claudeai_service = ClaudeAIService(config)
 
     logger.info("Comienza extracción del servicio Taggun")
     payload = await extract_ocr_payload(file=file, file_content=file_content)
@@ -98,9 +103,19 @@ async def handle_invoice_scan(
 
     address = taggun_extractor.extract_address()
 
-    line_items = taggun_extractor.parse_line_items(
+    line_items = await taggun_extractor.parse_line_items(
         amount_untaxed=amount_untaxed,
     )
+
+    if not line_items:
+        logger.debug(f"La suma de los ítems no coincide con el total de la factura.")
+        line_items = await line_items_extraction(
+            file=file,
+            file_content=file_content,
+            claudeai_service=claudeai_service,
+            amount_total=amount_total,
+            amount_untaxed=amount_untaxed,
+        )
 
     taggun_data = TaggunExtractedInvoice(
         partner_name=taggun_basic_fields.partner_name,

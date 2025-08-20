@@ -1,16 +1,19 @@
+from decimal import ROUND_HALF_UP, Decimal
 from fastapi import UploadFile
-from app.core.settings import settings
-from app.core.client_provider import ProviderConfig
-from app.core.patterns.adapter.base import get_provider
+
+from app.core.logging import logger
 from app.core.schemas.enums import ServicesEnum
+from app.core.patterns.adapter.base import get_provider
+from app.services.odoo.secrets import SecretsServiceOdoo
+from app.services.openai.client import OpenAIService
+from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
 from app.services.odoo.exceptions import (
     OdooCreationError,
     OdooDeleteError,
     OdooTaxIdNotFound,
 )
-from app.services.odoo.secrets import SecretsServiceOdoo
-from app.services.openai.client import OpenAIService
-from app.services.taggun.schemas.taggun_models import TaggunExtractedInvoice
+
+
 from app.services.odoo.v16.client import (
     delete_invoice,
     get_final_total_odoo,
@@ -21,9 +24,14 @@ from app.services.odoo.v16.client import (
     get_or_create_products,
     get_tax_id_odoo,
 )
-from app.core.logging import logger
 
-from exponential_core.exceptions import CustomAppException
+
+def _to_decimal(x) -> Decimal:
+    if x is None:
+        return Decimal("0.00")
+    if isinstance(x, Decimal):
+        return x.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return Decimal(str(x)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 async def odoo_process(
@@ -69,9 +77,7 @@ async def odoo_process(
     logger.debug(f"Dirección obtenida con éxito : {address_id}")
 
     secrets_service = await SecretsServiceOdoo(company_vat=company_vat).load()
-
     tax_id = secrets_service.get_tax_id()
-
     if not tax_id:
         tax_id = await get_tax_id_odoo(
             taggun_data=taggun_data,
@@ -96,28 +102,43 @@ async def odoo_process(
         odoo_provider=odoo_provider, invoice_id=invoice_id
     )
 
-    amount_total = response.get("amount_total")
+    # ------- Comparación con tolerancia -------
+    tolerance = Decimal("0.05")  # ajusta a tu necesidad
 
-    if amount_total and amount_total != taggun_data.amount_total:
-        logger.debug(f"Total en la factura: {taggun_data.amount_total}")
-        logger.debug(f"Total final: {amount_total}")
+    odoo_total = _to_decimal(response.get("amount_total"))
+    parsed_total = _to_decimal(taggun_data.amount_total)
+
+    logger.debug(f"Total en la factura (parseado): {parsed_total}")
+    logger.debug(f"Total final en Odoo: {odoo_total}")
+
+    diff = (odoo_total - parsed_total).copy_abs()
+
+    if diff > tolerance:
         logger.warning(
-            f"Los totales son diferentes para la factura {file.filename}, se eliminara."
+            f"Los totales difieren más que la tolerancia ({diff} > {tolerance}) "
+            f"para la factura {file.filename}, se eliminará."
         )
-
         try:
             await delete_invoice(
                 invoice_id=invoice_id,
                 odoo_provider=odoo_provider,
             )
             logger.info("Factura eliminada correctamente")
-
             raise OdooCreationError(
-                f"Los totales son diferentes para la factura {file.filename}, se elimino."
+                f"Los totales son diferentes (diff={diff}) para la factura {file.filename}, se eliminó."
             )
         except Exception as e:
             raise OdooDeleteError(message=str(e))
+    else:
+        if diff > Decimal("0.00"):
+            logger.info(
+                f"✅ Totales aceptados por tolerancia: diff={diff} ≤ {tolerance}. "
+                f"Factura {file.filename} continuará."
+            )
+        else:
+            logger.info("✅ Totales coinciden exactamente.")
 
+    # Adjuntar documento si todo está OK
     await get_or_attach_document(
         invoice_id=invoice_id,
         odoo_provider=odoo_provider,

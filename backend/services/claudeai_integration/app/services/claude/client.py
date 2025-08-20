@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from typing import Dict, Any
+import json
 
 from fastapi import UploadFile
 from pydantic import ValidationError
@@ -25,28 +25,32 @@ from app.services.claude.utils.format_response import (
     is_supported_file_format,
 )
 
+# ---------- Prompts ----------
+
+
+def create_system_guard() -> str:
+    # Refuerza que SOLO debe responder con un JSON válido.
+    return (
+        "You are a strict information extraction engine. "
+        "Output MUST be a single JSON object (no preface, no markdown, no comments). "
+        "Do not include any text before or after the JSON."
+    )
+
 
 def create_extraction_prompt() -> str:
-    """
-    Create the prompt to extract invoice data (multi-page PDF or image).
-    """
-    return """Analyze this COMPLETE invoice (PDF or image) and extract ALL structured information in valid JSON format.
+    return """Analyze this COMPLETE invoice (PDF or image) and extract ALL structured information in valid JSON.
 
-CRITICAL: You must extract EVERY SINGLE LINE ITEM without exception. DO NOT summarize, DO NOT group, DO NOT omit any line.
+CRITICAL:
+- Return ONLY a valid JSON object (no extra text).
+- Process ALL pages.
+- Extract EVERY line item (no grouping, no skipping).
+- Numbers MUST be numbers (not strings).
+- For the following fields, NEVER return null; if not present in the document, use the literal string "N/A":
+  general_info.company.address, general_info.company.tax_id,
+  general_info.customer.address,
+  payment.method, payment.due_date
 
-MANDATORY INSTRUCTIONS:
-1. If it's a PDF: Analyze ALL pages of the document.
-2. Extract EVERY line item one by one, even if repetitive or similar.
-3. Each row in the item table must be a separate object inside the "items" array.
-4. DO NOT group similar items — every line must appear individually.
-5. If there are 30+ items, you MUST include ALL 30+ items in the JSON.
-6. Process ALL pages of the document.
-7. For images: Analyze the entire image completely.
-
-IMPORTANT: You must return ONLY a valid JSON object — no extra text, no code markers, no explanations.
-
-The structure must follow exactly this schema:
-
+Schema:
 {
   "general_info": {
     "company": {
@@ -76,8 +80,8 @@ The structure must follow exactly this schema:
       "delivery_code": "string or null",
       "product_code": "string or null",
       "description": "string",
-      "quantity": number,              // quantity CAN be fractional (e.g., 7.5)
-      "unit": "string or null",        // unit may be missing; use null
+      "quantity": number,
+      "unit": "string or null",
       "unit_price": number,
       "discount_percent": number or null,
       "discount_amount": number or null,
@@ -105,40 +109,121 @@ The structure must follow exactly this schema:
   }
 }
 
-EXAMPLE OF COMPLETE EXTRAXTION FROM MULTI-PAGE PDF:
-If there is a table continuing across multiple pages with these rows:
+Rules:
+1) If a numeric field is missing, infer if possible; otherwise return 0.0 for optional numeric fields.
+2) ABSOLUTELY include every line item across ALL pages; if 30+ rows, include all 30+.
+3) Dates remain strings as-is.
+4) Do NOT output any explanation, ONLY the JSON.
 
-PAGE 1:
-- 29-07-2025 61076393 Pumpable 7.50 M3 2.50 18.75
-- 29-07-2025 61076393 Special Solera 7.50 M3 2.00 15.00
-- 29-07-2025 61076393 HA-25-BLANDA 7.50 M3 74.00 555.00
-- [... continues ...]
+FINAL CHECK before sending:
+- Ensure the fields listed above are "N/A" instead of null when absent.
+- Ensure numeric fields are numbers (not strings).
+- Ensure items array has ALL lines from the tables, no omissions.
 
-PAGE 2:
-- 29-07-2025 61076395 Pumpable 7.50 M3 2.50 18.75
-- 29-07-2025 61076395 Special Solera 7.50 M3 2.00 15.00
-- [... rest of lines ...]
-
-You must create a separate object in "items" for EVERY line from ALL pages.
-
-Important rules:
-1. If a field doesn't exist, use null.
-2. Numbers must be numbers, not strings.
-3. Dates should remain strings in the original format.
-4. For discounts: if there is a "% Dto." column, extract both discount_percent and discount_amount.
-5. net_price = unit_price - discount_amount (if applicable).
-6. line_total = net_price * quantity.
-7. Extract ABSOLUTELY ALL line items from ALL pages — if you omit any, the result is invalid.
-8. DO NOT add explanations or text, ONLY return the JSON.
-
-FINAL CHECK: Before sending your answer, count how many objects exist in the "items" array and make sure it matches the total number of rows across ALL pages of the invoice.
-
-Respond only with the COMPLETE valid JSON:"""
+Respond with the JSON only:
+"""
 
 
-async def invoice_formater(file: UploadFile) -> Dict[str, Any]:
+# ---------- Utilidades de parsing/normalización ----------
+
+_NON_NULL_STR_FIELDS = {
+    ("general_info", "company", "address"),
+    ("general_info", "company", "tax_id"),
+    ("general_info", "customer", "address"),
+    ("payment", "method"),
+    ("payment", "due_date"),
+}
+
+_NUMERIC_FIELDS = {
+    ("totals", "taxable_base"),
+    ("totals", "vat_percent"),
+    ("totals", "vat_amount"),
+    ("totals", "grand_total"),
+}
+
+
+def _set_path(obj, path, value):
+    ref = obj
+    for k in path[:-1]:
+        if isinstance(ref, dict) and k in ref:
+            ref = ref[k]
+        else:
+            return
+    if isinstance(ref, dict):
+        ref[path[-1]] = value
+
+
+def _get_path(obj, path):
+    ref = obj
+    for k in path:
+        if not isinstance(ref, dict) or k not in ref:
+            return None
+        ref = ref[k]
+    return ref
+
+
+def _to_number(v):
+    if v is None or v == "":
+        return None
+    if isinstance(v, (int, float)):
+        return v
+    try:
+        # quita separadores si vinieran
+        return float(str(v).replace(",", "").strip())
+    except Exception:
+        return None
+
+
+def repair_and_normalize_json(text: str, filename: str) -> str:
+    data = json.loads(text)
+    # Validar items presente y no vacío
+    items = data.get("items", None)
+    if not isinstance(items, list) or len(items) == 0:
+        reason = "La respuesta no contiene ítems extraídos (items vacío o ausente)."
+        logger.error("❌ %s | %s", filename, reason)
+        raise InvalidInvoiceException(filename, reason)
+
+    # Forzar "N/A" en strings que no deben ser null
+    for path in _NON_NULL_STR_FIELDS:
+        val = _get_path(data, path)
+        if val is None or (isinstance(val, str) and val.strip() == ""):
+            _set_path(data, path, "N/A")
+
+    # Convertir numéricos
+    for path in _NUMERIC_FIELDS:
+        val = _get_path(data, path)
+        num = _to_number(val)
+        _set_path(data, path, num)
+
+    return json.dumps(data, ensure_ascii=False)
+
+
+def format_pydantic_errors(e: ValidationError) -> str:
+    parts = []
+    for err in e.errors():
+        loc = "/".join(str(x) for x in err.get("loc", []))
+        msg = err.get("msg", "")
+        got = err.get("input", None)
+        parts.append(f"- {loc}: {msg}. input={got!r}")
+    return "\n".join(parts)
+
+
+def extract_first_text_block(resp) -> str:
+    # Anthropic puede devolver varios bloques; tomamos el primero de tipo texto.
+    for block in getattr(resp, "content", []):
+        if getattr(block, "type", None) == "text" and hasattr(block, "text"):
+            return block.text
+    raise AnthropicAPIException(
+        "La respuesta no contiene un bloque de texto utilizable.", "<internal>"
+    )
+
+
+# ---------- Handler principal ----------
+
+
+async def invoice_formater(file: UploadFile) -> InvoiceResponseSchema:
     """
-    Procesa un archivo único (PDF o imagen) de factura y devuelve datos estructurados en JSON
+    Procesa un archivo único (PDF o imagen) de factura y devuelve datos estructurados
     """
     api_key = settings.ANTHROPIC_API_KEY
 
@@ -175,7 +260,8 @@ async def invoice_formater(file: UploadFile) -> Dict[str, Any]:
         except Exception as e:
             raise FileProcessingException(file.filename, "media_type_detection", str(e))
 
-        # Crear el prompt para Claude (en inglés)
+        # Prompts
+        system = create_system_guard()
         prompt = create_extraction_prompt()
 
         # Crear el mensaje con el archivo (PDF o imagen)
@@ -188,7 +274,7 @@ async def invoice_formater(file: UploadFile) -> Dict[str, Any]:
                     "data": base64_content,
                 },
             }
-        else:  # Es una imagen
+        else:
             content_item = {
                 "type": "image",
                 "source": {
@@ -215,29 +301,37 @@ async def invoice_formater(file: UploadFile) -> Dict[str, Any]:
             response = await client.messages.create(
                 model="claude-3-5-sonnet-20241022",
                 max_tokens=8192,
+                temperature=0,
+                top_p=0.1,  # más seguro que 0 estricto
+                system=system,
                 messages=messages,
             )
         except Exception as e:
             raise AnthropicAPIException(str(e), file.filename)
 
         # Extraer el texto de la respuesta
-        response_text = response.content[0].text
+        response_text = extract_first_text_block(response)
         logger.info(f"✅ Respuesta recibida para {file.filename}")
 
-        # Parsear y validar con Pydantic
+        # Normalizar y validar con Pydantic
         try:
+            normalized_json = repair_and_normalize_json(response_text, file.filename)
             validated: InvoiceResponseSchema = parse_invoice_response_from_json(
-                response_text
+                normalized_json
             )
             items_count = len(validated.items)
             logger.info(f"✅ {file.filename}: Se extrajeron {items_count} ítems")
-
             return validated
 
         except ValidationError as e:
-            logger.error(f"❌ Error al validar JSON de {file.filename}: {str(e)}")
-            logger.error(f"Respuesta recibida: {response_text[:500]}...")
-            raise JSONParsingException(file.filename, str(e))
+            formatted = format_pydantic_errors(e)
+            logger.error(
+                "❌ Error al validar JSON de %s:\n%s\n---\nRespuesta (primeros 1000 chars): %s",
+                file.filename,
+                formatted,
+                response_text[:1000],
+            )
+            raise JSONParsingException(file.filename, formatted)
 
     except (
         APIKeyNotConfiguredException,

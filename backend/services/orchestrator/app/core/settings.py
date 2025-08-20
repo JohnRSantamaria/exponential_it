@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     URL_ZOHO: str
     URL_ODOO: str
     URL_OPENAPI: str
+    URL_CLAUDEAPI: str
 
     TAGGUN_URL: str = "https://api.taggun.io/api/receipt/v1/verbose/file"
 

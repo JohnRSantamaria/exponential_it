@@ -86,8 +86,6 @@ class TaxIdExtractor:
                 if TaxIdExtractor._is_valid_numeric_cif(valor):
                     valid.append(valor)
                     seen_normalized.add(normalized)
-                else:
-                    logger.warning(f"{valor} NO es un CIF numérico válido")
             elif tipo == "nif":
                 if TaxIdExtractor._is_valid_nif(valor):
                     valid.append(valor)
