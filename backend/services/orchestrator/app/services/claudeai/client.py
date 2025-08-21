@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import UploadFile
 
 from exponential_core.exceptions import CustomAppException
-from exponential_core.cluadeai import InvoiceResponseSchema
+from exponential_core.cluadeai import InvoiceResponseSchema, RetentionHTTPResponse
 
 from app.core.logging import logger
 from app.core.settings import settings
@@ -69,6 +69,61 @@ class ClaudeAIService:
         payload = _safe_json(resp)
         try:
             return InvoiceResponseSchema.model_validate(payload)
+        except Exception as ve:
+            raise CustomAppException(
+                message="Respuesta del extractor no coincide con el esquema.",
+                data={"validation_error": str(ve), "raw": payload},
+                status_code=422,
+            )
+
+    async def extract_withholdings(
+        self,
+        file: UploadFile,
+        file_content: Optional[bytes] = None,
+    ) -> RetentionHTTPResponse:
+        """
+        Llama a /withholdings del microservicio de Claude:
+        """
+        url = f"{self.path}/withholdings"
+        logger.debug(f"POST {url} (extract retentions)")
+
+        content = file_content or await file.read()
+        ctype = file.content_type or "application/octet-stream"
+        fname = (file.filename or "upload").strip() or "upload"
+
+        files = {"file": (fname, content, ctype)}
+
+        # --- Llamada HTTP ---
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                resp = await client.post(url=url, files=files)
+        except httpx.RequestError as err:
+            # Red/timeout/DNS/etc.
+            raise CustomAppException(
+                message="No se pudo contactar el extractor.",
+                data={"reason": str(err), "url": url},
+                status_code=503,
+            ) from err
+
+        # --- Manejo de errores HTTP ---
+        if resp.status_code >= 400:
+            payload = _safe_json(resp)
+            detail = payload.get("detail", payload)
+            if isinstance(detail, dict):
+                message = (detail.get("message") or "").strip() or (
+                    resp.text or "Error"
+                ).strip()
+                data = detail.get("data") or {}
+            else:
+                message = (str(detail) or resp.text or "Error").strip()
+                data = {}
+            raise CustomAppException(
+                message=message, data=data, status_code=resp.status_code
+            )
+
+        payload = _safe_json(resp)
+        try:
+            return RetentionHTTPResponse.model_validate(payload)
         except Exception as ve:
             raise CustomAppException(
                 message="Respuesta del extractor no coincide con el esquema.",

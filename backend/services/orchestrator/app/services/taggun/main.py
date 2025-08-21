@@ -13,6 +13,7 @@ from app.services.claudeai.extract_line_items import (
     extract_claude_invoice_data,
     line_items_extraction,
 )
+from app.services.claudeai.extract_withholdings import extract_withholdings_data
 from app.services.openai.client import OpenAIService
 from app.services.zoho.processor import zoho_process
 from app.services.upload.process import save_file_dropbox
@@ -63,7 +64,9 @@ async def handle_invoice_scan(
 
     invoice_number = taggun_basic_fields.invoice_number
 
+    tax_canditates = []
     tax_rate_percent: None | Decimal = None
+
     try:
         tax_candidate = taggun_extractor.calculate_tax_candidates(
             amount_discount=amount_discount,
@@ -108,13 +111,16 @@ async def handle_invoice_scan(
 
     address = taggun_extractor.extract_address()
 
-    line_items = await taggun_extractor.parse_line_items(
-        amount_untaxed=amount_untaxed,
-        amount_total=amount_total,
-        amount_tax=amount_tax
-    )
+    line_items = taggun_extractor.parse_line_items()
 
-    if not line_items:
+    valid_values = taggun_extractor._valid_values(
+        amount_tax=amount_tax,
+        amount_total=amount_total,
+        amount_untaxed=amount_untaxed,
+        line_items=line_items,
+    )
+    tax_canditates.append(tax_rate_percent)
+    if not valid_values:
         logger.debug(f"La suma de los ítems no coincide con el total de la factura.")
         invoice_data = await extract_claude_invoice_data(
             file=file,
@@ -122,7 +128,19 @@ async def handle_invoice_scan(
             claudeai_service=claudeai_service,
         )
         invoice_number = invoice_data.general_info.invoice_number
-        line_items = await line_items_extraction(invoice_data=invoice_data)
+        line_items, lines_total = await line_items_extraction(invoice_data=invoice_data)
+
+        EPS = Decimal("0.03")  # Valor de tolerancia
+        grand_total = invoice_data.totals.grand_total
+
+        if abs(lines_total - grand_total) > EPS:
+            retention = await extract_withholdings_data(
+                file=file,
+                file_content=file_content,
+                claudeai_service=claudeai_service,
+            )
+            if retention.has_retention:
+                tax_canditates.append(retention.retention_percent)
 
     taggun_data = TaggunExtractedInvoice(
         partner_name=taggun_basic_fields.partner_name,
@@ -135,7 +153,7 @@ async def handle_invoice_scan(
         amount_untaxed=amount_untaxed,
         address=address,
         line_items=line_items,
-        tax_canditates=[tax_rate_percent],
+        tax_canditates=tax_canditates,
     )
 
     payload_text = payload.get("text", {}).get("text", "")
@@ -228,10 +246,7 @@ async def handle_invoice_scan(
 
 
 async def handle_multiple_invoice_scans(recipient: str, files: list[UploadFile]):
-    # Leer todo el contenido de los archivos en paralelo
     contents = await asyncio.gather(*[file.read() for file in files])
-
-    # Ejecutar procesamiento de cada archivo en paralelo
     results = await asyncio.gather(
         *[
             handle_invoice_scan(recipient=recipient, file=file, file_content=content)

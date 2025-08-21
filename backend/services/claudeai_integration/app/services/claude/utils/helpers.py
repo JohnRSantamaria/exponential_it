@@ -15,6 +15,8 @@ ALLOWED_MIME = {
     "image/png",
     "image/webp",
 }
+RETRYABLE_CODES = ("529", "502", "503", "504")
+RETRYABLE_MARKERS = ("overloaded_error", "Rate limit", "temporarily unavailable")
 
 
 def http_error(status_code: int, message: str, data: dict | None = None) -> None:
@@ -76,3 +78,8 @@ def _detect_media_type(file: UploadFile) -> str:
 
     # Default conservador
     return "application/pdf"
+
+
+def _is_overloaded_text(text: str) -> bool:
+    t = (text or "").lower()
+    return "overloaded_error" in t or "error code: 529" in t

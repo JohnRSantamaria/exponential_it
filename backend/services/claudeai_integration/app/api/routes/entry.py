@@ -109,7 +109,7 @@ async def extract_invoice_items(file: UploadFile = File(...)):
         )
 
 
-@router.post("/retention", response_model=RetentionHTTPResponse)
+@router.post("/withholdings", response_model=RetentionHTTPResponse)
 async def detect_retention_by_ai(file: UploadFile = File(...)):
     """
     Busca explícitamente RETENCIONES en el documento usando IA (Claude) y devuelve:

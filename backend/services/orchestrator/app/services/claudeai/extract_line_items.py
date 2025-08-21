@@ -1,6 +1,6 @@
 import json
 
-from typing import List, Any
+from typing import List, Any, Tuple
 from fastapi import UploadFile
 from decimal import Decimal, ROUND_HALF_UP
 from pydantic import BaseModel, ValidationError
@@ -10,6 +10,8 @@ from app.services.claudeai.client import ClaudeAIService
 from app.services.taggun.exceptions import AdminServiceError, FileProcessingError
 from app.services.taggun.schemas.taggun_models import LineItemSchema
 from exponential_core.cluadeai import InvoiceResponseSchema
+
+from app.services.taggun.utils.conversion_to_decimal import D, f2, quant2
 
 
 def _to_decimal(value) -> Decimal:
@@ -92,23 +94,37 @@ async def extract_claude_invoice_data(
 
 async def line_items_extraction(
     invoice_data: InvoiceResponseSchema,
-) -> List[LineItemSchema]:
+) -> Tuple[List[LineItemSchema], Decimal]:
+    """
+    Extrae ítems ya normalizados (usando D/f2) y devuelve también
+    la suma total de líneas como Decimal (cuantizada a 2 decimales).
+    """
     parsed_items: List[LineItemSchema] = []
-    items = invoice_data.items
+    items = invoice_data.items or []
 
-    # Sumamos totales de los ítems
-    lines_total = Decimal("0.00")
+    lines_total: Decimal = Decimal("0.00")
+
     for item in items:
-        line_total = _to_decimal(item.line_total)
-        lines_total += line_total
+        # Normaliza cantidad y precio unitario desde el schema de la IA
+        qty_dec = D(getattr(item, "quantity", 0), default="0")
+        unit_price_dec = D(getattr(item, "unit_price", 0), default="0")
+
+        # Usa line_total si viene; si no, calcula unit_price * quantity
+        lt_from_schema = getattr(item, "line_total", None)
+        line_total_dec = D(lt_from_schema, default="0")
+        if line_total_dec == Decimal("0") and (unit_price_dec != 0 and qty_dec != 0):
+            line_total_dec = unit_price_dec * qty_dec
+
+        lines_total += line_total_dec
 
         parsed_items.append(
             LineItemSchema(
-                name=item.description,
-                quantity=_to_decimal(item.quantity),
-                unit_price=_to_decimal(item.unit_price),
-                total_price=line_total,
+                name=(getattr(item, "description", "") or "").strip(),
+                quantity=float(qty_dec),  # en tu schema quantity es float
+                unit_price=f2(unit_price_dec),  # float con 2 decimales
+                total_price=f2(line_total_dec),  # float con 2 decimales
             )
         )
 
-    return parsed_items
+    # Devuelve el total cuantizado a 2 decimales para coherencia financiera
+    return parsed_items, quant2(lines_total)

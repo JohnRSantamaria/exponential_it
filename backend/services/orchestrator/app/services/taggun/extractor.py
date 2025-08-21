@@ -9,6 +9,7 @@ from app.services.taggun.exceptions import (
     MissingRequiredAmountsError,
     OCRPayloadFormatError,
 )
+from app.services.taggun.utils.conversion_to_decimal import D, _require, f2, quant2
 from app.services.zoho.exceptions import TaxPercentageNotFound
 from app.services.taggun.schemas.taggun_models import (
     AddressSchema,
@@ -20,52 +21,6 @@ from app.services.taggun.schemas.taggun_models import (
 getcontext().prec = 38
 
 
-# ========= Helpers de Decimal =========
-def D(val: Any, default: str = "0") -> Decimal:
-    """
-    Conversión segura a Decimal:
-    - Decimal -> tal cual
-    - float -> Decimal(str(valor)) para evitar binario
-    - int -> Decimal(int)
-    - str -> normaliza coma decimal a punto, strip
-    - None / inválidos -> Decimal(default)
-    """
-    if isinstance(val, Decimal):
-        return val
-    try:
-        if val is None:
-            return Decimal(default)
-        if isinstance(val, float):
-            return Decimal(str(val))
-        if isinstance(val, int):
-            return Decimal(val)
-        if isinstance(val, str):
-            s = val.strip().replace(",", ".")
-            if s == "":
-                return Decimal(default)
-            return Decimal(s)
-        return Decimal(default)
-    except (InvalidOperation, ValueError, TypeError):
-        return Decimal(default)
-
-
-def quant2(x: Decimal) -> Decimal:
-    """Redondeo financiero a 2 decimales con HALF_UP."""
-    return D(x).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-
-
-def f2(x: Decimal) -> float:
-    """Devuelve float redondeado a 2 decimales (para modelos Pydantic que esperan float)."""
-    return float(quant2(x))
-
-
-def _require(value: Any, field_name: str):
-    """Valida presencia de campos obligatorios y lanza FieldNotFoundError."""
-    if value is None or (isinstance(value, str) and value.strip() == ""):
-        raise FieldNotFoundError(field_name)
-    return value
-
-
 # ========= Extractor =========
 class TaggunExtractor:
     def __init__(self, payload: dict):
@@ -74,6 +29,7 @@ class TaggunExtractor:
         self.ocr_data = payload
         self.candidates: Set[Decimal] = set()
         self.corrected_values: Dict[str, Decimal] = {}
+        self.line_items_total: Decimal = Decimal("0")
 
         # Tasas estándar como Decimal
         self._standard_rates: List[Decimal] = [
@@ -145,6 +101,41 @@ class TaggunExtractor:
                 return value
         return default
 
+    def _valid_values(
+        self,
+        amount_total: Decimal,
+        amount_tax: Decimal,
+        amount_untaxed: Decimal,
+        line_items: List[LineItemSchema] | bool,
+        raise_on_mismatch: bool = False,
+    ):
+        EPS = self._sum_tolerance
+        total_expected = quant2(D(amount_untaxed) or Decimal("0"))
+
+        # Validación de self.line_items_total vs. amount_untaxed usando tolerancia monetaria
+        if not line_items:
+            return False
+
+        if abs(self.line_items_total - total_expected) > EPS:
+            if raise_on_mismatch:
+                raise LineItemsSumMismatchError(
+                    expected=total_expected,
+                    obtained=quant2(self.line_items_total),
+                    tolerance=EPS,
+                )
+            return False
+
+        if round(abs(amount_total - (self.line_items_total + amount_tax)), 2) > EPS:
+            if raise_on_mismatch:
+                raise LineItemsSumMismatchError(
+                    expected=total_expected,
+                    obtained=quant2(self.line_items_total),
+                    tolerance=EPS,
+                )
+            return False
+
+        return True
+
     # -----------------------
     # Address
     # -----------------------
@@ -175,26 +166,16 @@ class TaggunExtractor:
             raise OCRPayloadFormatError("productLineItems es None")
         return items if isinstance(items, list) else []
 
-    async def parse_line_items(
+    def parse_line_items(
         self,
-        amount_untaxed: Decimal,
-        amount_total: Decimal,
-        amount_tax: Decimal,
-        *,  # solo por nombre
-        raise_on_mismatch: bool = False,
-    ) -> List[LineItemSchema] | bool:
+    ) -> List[LineItemSchema]:
         """
         Devuelve ítems consistentes con el monto total global.
         - Si la suma no coincide con amount_untaxed, retorna False (por defecto)
           o lanza LineItemsSumMismatchError si raise_on_mismatch=True.
         """
         raw_items = self.extract_line_items()
-        parsed_items: List[LineItemSchema] = []
-
-        EPS = self._sum_tolerance
-        total_expected = quant2(D(amount_untaxed) or Decimal("0"))
-
-        sum_total: Decimal = Decimal("0")
+        line_items: List[LineItemSchema] = []
 
         try:
             for item in raw_items:
@@ -214,13 +195,13 @@ class TaggunExtractor:
 
                 # Calcular total de línea
                 line_total_dec = unit_price_dec * qty_dec
-                sum_total += line_total_dec
+                self.line_items_total += line_total_dec
 
                 # Emitir float en el schema (redondeado a 2 decimales)
-                parsed_items.append(
+                line_items.append(
                     LineItemSchema(
                         name=name.strip(),
-                        quantity=float(qty_dec),  # quantity es float en tu schema
+                        quantity=float(qty_dec),
                         unit_price=f2(unit_price_dec),
                         total_price=f2(line_total_dec),
                     )
@@ -232,26 +213,7 @@ class TaggunExtractor:
                 "Error al parsear ítems de línea", data={"error": str(exc)}
             )
 
-        # Validación de suma vs. amount_untaxed usando tolerancia monetaria
-        if not parsed_items:
-            # Dejas que el caller decida si arma un ítem sintético.
-            return False
-
-        if abs(sum_total - total_expected) > EPS:
-            if raise_on_mismatch:
-                raise LineItemsSumMismatchError(
-                    expected=total_expected, obtained=quant2(sum_total), tolerance=EPS
-                )
-            return False
-
-        if round(abs(amount_total - (sum_total + amount_tax)), 2) > EPS:
-            if raise_on_mismatch:
-                raise LineItemsSumMismatchError(
-                    expected=total_expected, obtained=quant2(sum_total), tolerance=EPS
-                )
-            return False
-
-        return parsed_items
+        return line_items
 
     # -----------------------
     # Base values
