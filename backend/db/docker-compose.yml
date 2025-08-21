@@ -5,6 +5,8 @@ services:
         restart: always
         env_file:
             - .env.db
+        environment:
+            - POSTGRES_INITDB_ARGS=--locale=en_US.utf8
         volumes:
             - postgres_data:/var/lib/postgresql/data
         ports:

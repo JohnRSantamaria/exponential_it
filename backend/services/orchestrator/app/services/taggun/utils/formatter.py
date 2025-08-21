@@ -124,11 +124,18 @@ def to_decimal_one(
     return val
 
 
-def take_single_percent(singleton: set[Decimal] | None) -> Decimal | None:
-    """De un set {Decimal('xx')} devuelve Decimal('xx.xx') normalizado; None si viene vacío/None."""
-    if not singleton:
+def take_single_percent(singleton: set[Decimal] | Decimal | None) -> Decimal | None:
+    """De un set {Decimal('xx')} o un Decimal devuelve Decimal('xx.xx'); None si viene vacío/None."""
+    if singleton is None:
         return None
-    d = next(iter(singleton))
+
+    if isinstance(singleton, set):
+        if not singleton:
+            return None
+        d = next(iter(singleton))
+    else:
+        d = singleton  # ya es un Decimal o convertible
+
     if not isinstance(d, Decimal):
         d = Decimal(str(d))
     return d.copy_abs().quantize(Decimal("0.01"))

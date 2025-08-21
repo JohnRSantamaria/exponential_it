@@ -9,7 +9,10 @@ from app.core.settings import settings
 from app.core.secrets import SecretsService
 from app.core.client_provider import ProviderConfig
 from app.services.claudeai.client import ClaudeAIService
-from app.services.claudeai.extract_line_items import line_items_extraction
+from app.services.claudeai.extract_line_items import (
+    extract_claude_invoice_data,
+    line_items_extraction,
+)
 from app.services.openai.client import OpenAIService
 from app.services.zoho.processor import zoho_process
 from app.services.upload.process import save_file_dropbox
@@ -57,6 +60,8 @@ async def handle_invoice_scan(
     amount_tax = taggun_basic_fields.amount_tax
     amount_total = taggun_basic_fields.amount_total
     amount_untaxed = taggun_basic_fields.amount_untaxed
+
+    invoice_number = taggun_basic_fields.invoice_number
 
     tax_rate_percent: None | Decimal = None
     try:
@@ -109,19 +114,19 @@ async def handle_invoice_scan(
 
     if not line_items:
         logger.debug(f"La suma de los ítems no coincide con el total de la factura.")
-        line_items = await line_items_extraction(
+        invoice_data = await extract_claude_invoice_data(
             file=file,
             file_content=file_content,
             claudeai_service=claudeai_service,
-            amount_total=amount_total,
-            amount_untaxed=amount_untaxed,
         )
+        invoice_number = invoice_data.general_info.invoice_number
+        line_items = await line_items_extraction(invoice_data=invoice_data)
 
     taggun_data = TaggunExtractedInvoice(
         partner_name=taggun_basic_fields.partner_name,
         partner_vat=taggun_basic_fields.partner_vat,
         date=taggun_basic_fields.date,
-        invoice_number=taggun_basic_fields.invoice_number,
+        invoice_number=invoice_number,
         amount_total=amount_total,
         amount_tax=amount_tax,
         amount_discount=amount_discount,

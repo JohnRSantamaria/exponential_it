@@ -1,3 +1,5 @@
+from decimal import Decimal
+from typing import List
 from exponential_core.exceptions import CustomAppException
 
 
@@ -78,4 +80,41 @@ class UnsupportedImageFormatError(CustomAppException):
                 "supported_types": supported_types,
             },
             status_code=415,  # 415 Unsupported Media Type
+        )
+
+
+class OCRPayloadFormatError(CustomAppException):
+    def __init__(
+        self, message="El payload OCR no tiene el formato esperado", data=None
+    ):
+        super().__init__(message, data or {}, status_code=422)
+
+
+class MissingRequiredAmountsError(CustomAppException):
+    def __init__(self, missing: List[str], message: str = None, data: dict = None):
+        default = f"Faltan montos requeridos: {', '.join(missing)}"
+        super().__init__(message or default, {**(data or {}), "missing": missing}, 422)
+
+
+class LineItemsSumMismatchError(CustomAppException):
+    def __init__(
+        self,
+        expected: Decimal,
+        obtained: Decimal,
+        tolerance: Decimal,
+        data: dict = None,
+    ):
+        msg = (
+            "La suma de los ítems no coincide con el monto neto (amount_untaxed) "
+            f"dentro de la tolerancia. Esperado={expected}, Obtenido={obtained}, Tolerancia={tolerance}"
+        )
+        super().__init__(
+            msg,
+            {
+                **(data or {}),
+                "expected": str(expected),
+                "obtained": str(obtained),
+                "tolerance": str(tolerance),
+            },
+            422,
         )
