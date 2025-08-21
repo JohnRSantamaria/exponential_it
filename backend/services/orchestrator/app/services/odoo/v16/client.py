@@ -1,5 +1,6 @@
+from decimal import Decimal
 import json
-from typing import List
+from typing import Iterable, List
 from fastapi import UploadFile
 from pydantic import TypeAdapter
 from datetime import datetime
@@ -144,17 +145,21 @@ async def get_tax_id_odoo(
 
 
 async def get_or_create_products(
-    taggun_data: TaggunExtractedInvoice, odoo_provider: OdooAdapter, tax_id: int
+    taggun_data: TaggunExtractedInvoice,
+    odoo_provider: OdooAdapter,
+    tax_id: int,
+    withholding_tax_ids: List[int],
 ) -> list[InvoiceLineSchema]:
     line_items = taggun_data.line_items
     InvoiceLines: InvoiceLineSchema = []
 
+    withholding_tax_ids.append(tax_id)
     for item in line_items:
         payload = ProductCreateSchema(
             name=item.name,
             list_price=item.unit_price,
             detailed_type=ProductTypeEnum.CONSU,
-            taxes_id=[tax_id],
+            taxes_id=withholding_tax_ids,
         )
         product_id = await odoo_provider.create_product(payload=payload)
 
@@ -163,7 +168,7 @@ async def get_or_create_products(
                 product_id=product_id,
                 price_unit=item.unit_price,
                 quantity=item.quantity,
-                tax_ids=[tax_id],
+                tax_ids=withholding_tax_ids,
             )
         )
 
@@ -215,3 +220,14 @@ async def delete_invoice(
     odoo_provider: OdooAdapter,
 ):
     return await odoo_provider.delete_final_invoice(invoice_id=invoice_id)
+
+
+async def get_withholding(
+    amount: float,
+    odoo_provider: "OdooAdapter",
+) -> int | None:
+    """
+    Pide a tu servicio el ID de account.tax correspondiente a UNA retención.
+    Devuelve el ID o None si no se encuentra.
+    """
+    return await odoo_provider.get_withholding_tax_id(amount=amount)

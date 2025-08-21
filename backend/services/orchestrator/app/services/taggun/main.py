@@ -140,7 +140,7 @@ async def handle_invoice_scan(
                 claudeai_service=claudeai_service,
             )
             if retention.has_retention:
-                tax_canditates.append(retention.retention_percent)
+                tax_canditates.append(-retention.retention_percent)
 
     taggun_data = TaggunExtractedInvoice(
         partner_name=taggun_basic_fields.partner_name,

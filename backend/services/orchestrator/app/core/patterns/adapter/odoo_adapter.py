@@ -1,3 +1,5 @@
+from decimal import Decimal
+from typing import Iterable
 import httpx
 from app.core.settings import settings
 from app.core.client_provider import ProviderConfig
@@ -139,4 +141,22 @@ class OdooAdapter(AccountingProvider):
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.delete(url=url, headers=headers)
+        return response.json()
+
+    @error_interceptor
+    async def get_withholding_tax_id(self, amount: float) -> int | None:
+        """
+        GET {path}/get-tax-id?amount=-15.0
+        Retorna el ID (int) o None si tu servicio no encuentra mapeo.
+        """
+        # Normaliza a string decimal para evitar artefactos de float en el querystring
+        amount_str = str(Decimal(str(amount)))  # ej: -15.0
+
+        url = f"{self.path}/get-tax-id?amount={amount_str}"
+        headers = {"x-client-vat": self.company_vat}
+
+        logger.debug(f"Buscando la retencion {amount_str} en : {url}")
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url=url, headers=headers)
         return response.json()

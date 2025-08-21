@@ -160,9 +160,15 @@ async def get_tax_id_by_amount(
     amount: float,
     tax_type: TaxUseEnum,
 ) -> int:
+    logger.debug(
+        f"Buscando las taxes asociadas a la compañia con id : { company.company_id}"
+    )
     taxes = await company.read(
         "account.tax",
-        [["type_tax_use", "=", tax_type.value]],
+        [
+            ["active", "=", True],
+            ["company_id.id", "=", company.company_id],
+        ],
         fields=["id", "amount"],
     )
 

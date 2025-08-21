@@ -23,6 +23,7 @@ from app.services.odoo.v16.client import (
     get_or_create_invoice,
     get_or_create_products,
     get_tax_id_odoo,
+    get_withholding,
 )
 
 
@@ -76,19 +77,30 @@ async def odoo_process(
     )
     logger.debug(f"Dirección obtenida con éxito : {address_id}")
 
-    secrets_service = await SecretsServiceOdoo(company_vat=company_vat).load()
-    tax_id = secrets_service.get_tax_id()
-    if not tax_id:
-        tax_id = await get_tax_id_odoo(
-            taggun_data=taggun_data,
-            odoo_provider=odoo_provider,
-            openai_service=openai_service,
-        )
+    # Creación y obtención de Tax y retenciones
+    tax_canditates = taggun_data.tax_canditates or set()
+
+    withholdings = {t for t in tax_canditates if t < 0}
+    taggun_data.tax_canditates -= withholdings  # elimina negativos del set original
+
+    tax_id = await get_tax_id_odoo(
+        taggun_data=taggun_data,
+        odoo_provider=odoo_provider,
+        openai_service=openai_service,
+    )
+
+    withholding_tax_ids: list[int] = []
+
+    for w in sorted(withholdings):
+        tax_id_wh = await get_withholding(amount=w, odoo_provider=odoo_provider)
+        if tax_id_wh is not None:
+            withholding_tax_ids.append(tax_id_wh)
 
     product_ids = await get_or_create_products(
         taggun_data=taggun_data,
         odoo_provider=odoo_provider,
         tax_id=tax_id,
+        withholding_tax_ids=withholding_tax_ids,
     )
 
     invoice_id = await get_or_create_invoice(
