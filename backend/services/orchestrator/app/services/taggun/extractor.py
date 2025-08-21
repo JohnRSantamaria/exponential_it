@@ -178,6 +178,8 @@ class TaggunExtractor:
     async def parse_line_items(
         self,
         amount_untaxed: Decimal,
+        amount_total: Decimal,
+        amount_tax: Decimal,
         *,  # solo por nombre
         raise_on_mismatch: bool = False,
     ) -> List[LineItemSchema] | bool:
@@ -236,6 +238,13 @@ class TaggunExtractor:
             return False
 
         if abs(sum_total - total_expected) > EPS:
+            if raise_on_mismatch:
+                raise LineItemsSumMismatchError(
+                    expected=total_expected, obtained=quant2(sum_total), tolerance=EPS
+                )
+            return False
+
+        if round(abs(amount_total - (sum_total + amount_tax)), 2) > EPS:
             if raise_on_mismatch:
                 raise LineItemsSumMismatchError(
                     expected=total_expected, obtained=quant2(sum_total), tolerance=EPS

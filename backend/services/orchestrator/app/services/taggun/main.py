@@ -110,6 +110,8 @@ async def handle_invoice_scan(
 
     line_items = await taggun_extractor.parse_line_items(
         amount_untaxed=amount_untaxed,
+        amount_total=amount_total,
+        amount_tax=amount_tax
     )
 
     if not line_items:
