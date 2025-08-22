@@ -56,6 +56,18 @@ services:
       restart_policy:
         condition: on-failure    
 
+  claudeai-integration: 
+    
+    env_file:
+      - ./backend/services/claudeai_integration/.env.prod
+    volumes:
+      - ./backend/services/claudeai_integration:/app
+    networks:
+      - app_net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure    
   odoo-integration: 
     
     env_file:
