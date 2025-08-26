@@ -24,7 +24,9 @@ class BaseAPIView(APIView):
                     "detail": response.data.get("detail", str(exc)),
                     "error_type": exc.__class__.__name__,
                     "status_code": response.status_code,
-                    "timestamp": datetime.datetime.utcnow().isoformat(),
+                    "timestamp": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
                 },
                 status=response.status_code,
             )
@@ -34,7 +36,7 @@ class BaseAPIView(APIView):
                 "detail": str(exc),
                 "error_type": exc.__class__.__name__,
                 "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
-                "timestamp": datetime.datetime.utcnow().isoformat(),
+                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

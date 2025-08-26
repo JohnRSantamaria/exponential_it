@@ -11,7 +11,7 @@ DEBUG = True
 HOST = config("HOST", default="", cast=Csv())
 ALLOWED_HOSTS = HOST
 
-CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://localhost:3000",
