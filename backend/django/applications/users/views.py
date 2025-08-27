@@ -17,6 +17,7 @@ from users.serializers import (
     EmailSerializer,
     UserAccountSerializer,
     ScanningSerializer,
+    UserAccountSerializerBackend,
     UserRegisterSerializer,
 )
 from accounts.models import Account
@@ -143,7 +144,7 @@ class IdentifyView(BaseAPIView):
         except User.DoesNotExist:
             raise ValidationError({"detail": "Usuario no encontrado"})
 
-        serializer = UserAccountSerializer(user)
+        serializer = UserAccountSerializerBackend(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
