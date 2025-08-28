@@ -20,13 +20,15 @@ class UserAccountSerializer(serializers.ModelSerializer):
     user_email = serializers.EmailField(source="email")
     accounts = AccountSerializer(many=True, read_only=True)
     total_invoices_user = serializers.IntegerField(source="total_invoices_scanned")
+    maximum_invoices = serializers.IntegerField(source="maximum_scanned_invoices")
 
     class Meta:
         model = User
         fields = [
-            "user_id",
             "user",
+            "user_id",
             "user_email",
+            "maximum_invoices",
             "total_invoices_user",
             "accounts",
         ]
